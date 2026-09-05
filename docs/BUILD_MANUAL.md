@@ -49,7 +49,13 @@ specification and substitute freely.
 | 1 | FOC controller with regen | Turbine → 12 V bus | VESC-class mini |
 | 1 | Turbine rotor, 150 mm, 4 folding blades | Custom; see §4 | |
 | 2 | Metal-gear micro servo, ≥ 3.5 kg·cm, ≤ 14 g | Pylon and turbine actuation | |
-| 1 set | 4-bar linkage hardware | 2 mm carbon links, M2 clevises, over-centre stop | |
+| 1 set | 4-bar linkage hardware | 2 mm carbon links, M2 clevises, over-centre stop | Motor pylon |
+| 1 | **Micro linear actuator** | 50 mm stroke, ≥ 80 N, **self-locking** ratio, ≤ 45 g | L12-50-210:1 class — see [VERTICAL_MAST.md](VERTICAL_MAST.md) §5.2 |
+| 1 set | Square carbon tube, 0.8 mm wall | 34×22, 30.4×18.4, 26.8×14.8, 23.2×11.2 mm | Mast trunk + 3 stages |
+| 8 | PTFE-lined bushing strips | μ ≤ 0.12 on hard-anodised | Two per telescoping joint |
+| 2 | Pinion, module 0.4, Ø8 mm | With 4 matching racks | Rack–pinion–rack doublers |
+| 1 set | Bellcrank, con-rod, M2 pivots | Equal 30 mm arms, 90° apart | |
+| 2 | Hall sensor + magnet | Mast end-of-travel confirmation | Independent of the actuator's own feedback |
 
 ### 1.4 Avionics and payload
 
@@ -81,7 +87,7 @@ enough and gentler on the cells than a strong one. Digital scale reading to
 
 Weigh every component before and after installation and record it against the
 mass table in [ANALYSIS.md](ANALYSIS.md) §1. A build that tracks its budget
-lands at 1518 g; one that does not lands at 1800 g and loses two hours of
+lands at 1622 g; one that does not lands at 1900 g and loses hours of
 endurance.
 
 ### Stage 1 — Wing cores and spar
@@ -157,6 +163,15 @@ endurance.
 
 ---
 
+## 4a. Deployment mast
+
+Build and rig it per [VERTICAL_MAST.md](VERTICAL_MAST.md) §8. In short: bond
+the trunk between two bulkheads and never into the shell; cycle the assembled
+mast 200 times dry before it goes in the aircraft; set the rack mesh with the
+stages fully extended; and ping-test the extended mast, recording the
+frequency, before the first spin-up.
+
+
 ## 4. Turbine rotor
 
 The one part with no off-the-shelf equivalent.
@@ -204,11 +219,15 @@ Then `SOAR_ENABLE = 1`, `SOAR_VSPEED = 0.7`, `SOAR_ALT_MIN = 250`,
 [ANALYSIS.md](ANALYSIS.md) §2.3 into the `SOAR_POLAR_*` parameters.
 
 ### Interlocks to verify on the bench, every time
-1. Turbine retracts and disengages below 25 m AGL — **test the hardware
-   failsafe with the scripting engine deliberately halted.**
-2. Turbine will not engage below 14 m/s.
-3. Bay doors cannot be commanded open with the pod stowed.
-4. Pylon over-centre lock holds with the servo unpowered.
+1. Mast retracts fully below 25 m AGL — **test the hardware failsafe with the
+   scripting engine deliberately halted.**
+2. Turbine will not engage below 14 m/s; the mast will not move above 20 m/s.
+3. Rotor is electrically braked before any retract command is accepted.
+4. Bay doors cannot be commanded open with the mast stowed.
+5. Pylon over-centre lock holds with the servo unpowered.
+6. **Mast holds full air load with the actuator unpowered** — this is the only
+   thing keeping it up in flight. Load the extended mast to 2 N at the nacelle
+   with power removed and confirm zero creep over 10 minutes.
 
 ### Launch and recovery
 Hand launch or bungee, both pods stowed, flaps at −6 mm. There is no landing

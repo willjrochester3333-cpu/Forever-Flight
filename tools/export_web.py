@@ -75,6 +75,51 @@ def pack(meshes):
     return out, {"origin": lo, "scale": scale}
 
 
+def _mast_spec():
+    """VDM-1 sizing, straight from tools/mast.py."""
+    import mast as MS
+    g, dr, st = MS.geometry(), MS.drive(), MS.structure()
+    ae = MS.aircraft_effect()
+    act = [a for a in MS.pick_actuator(dr)]
+    return {
+        "stationX": MS.MAST["station_x"],
+        "stroke": round(g["stroke"], 1),
+        "actuator_stroke": round(g["stage_travel"], 1),
+        "stages": g["n_stages"],
+        "rotor_R": g["rotor_R"], "clearance": round(g["clearance"], 1),
+        "env_r": MS.MAST["stowed_env_r"],
+        "nested": round(g["nested"], 1), "avail": round(g["fuse"]["h"], 1),
+        "fairing": round(g["fairing_depth"], 1),
+        "z_stow": round(g["z_stow"], 1), "z_dep": round(g["z_deployed"], 1),
+        "below_keel": round(g["below_keel"]),
+        "sections": [[round(a, 1), round(b, 1)] for a, b in MS.tube_sizes()],
+        "stage_len": round(g["stage_len"], 1),
+        "overlap": round(dr["overlap_mm"], 1),
+        "drag_N": round(dr["drag"]["total"], 2),
+        "v_retract": MS.MAST["v_retract"],
+        "friction_N": round(dr["friction_N"], 2),
+        "bush_N": round(max(j["bush_N"] for j in dr["joints"])),
+        "moving_g": round(dr["moving_mass_g"]),
+        "weight_N": round(dr["weight_N"], 2),
+        "load_N": round(dr["design_load_N"], 1),
+        "need_N": round(dr["actuator_force_N"], 1),
+        "f1": round(st["f1_hz"]), "onep": round(st["rotor_1p_hz"]),
+        "ratio": round(st["freq_ratio"], 1),
+        "lash": round(st["lash_mm"], 2), "defl": round(st["defl_mm"], 2),
+        "dmass": round(ae["dmass_g"]),
+        "sink_pct": round(ae["sink_pct"], 1),
+        "cg_swing_mm": round(ae["cg_shift_swing_mm"], 1),
+        "cg_swing_mac": round(ae["cg_shift_swing_mac"], 1),
+        "actuators": [{"name": a["name"], "stroke": a["stroke"],
+                       "force": a["force"], "mass": a["mass"],
+                       "body": a["body"], "speed": a["speed"],
+                       "margin": round(a["margin"], 1),
+                       "deploy_s": round(a["deploy_s"], 1),
+                       "stroke_ok": a["stroke_ok"], "ok": a["ok"]}
+                      for a in act],
+    }
+
+
 def build():
     mo, ra = C.MOTOR, C.RAT
     wing_mesh, props = B.build_wing()
@@ -109,11 +154,20 @@ def build():
         lambda r: math.degrees(math.atan2(pitch_mm, 2.0 * math.pi * max(r, 12.0))),
         0.10, 0.045, "prop_blade")
 
-    # --- turbine pod -------------------------------------------------------
-    arm = B.build_strut(ra["pivot"], ra["arm_len"], ra["arm_chord"],
-                        ra["arm_thickness"], ra["deployed_angle"], "arm")
-    arm.apply(local_frame(ra["pivot"], ra["deployed_angle"]))
+    # --- turbine mast (VDM-1) ----------------------------------------------
+    # Everything leaves in the STOWED pose; the viewer translates each stage
+    # down by (stage index x stage travel x deployment), which is exactly the
+    # kinematics the geometry model uses.
+    stack = B.mast_stack(0.0)
+    mast_meshes = []
+    for sg in stack["stages"]:
+        ax, ay = sg["sec"]
+        mast_meshes.append((sg["name"],
+                            B.rect_tube(ax, ay, stack["x_c"],
+                                        sg["z0"], sg["z1"], sg["name"])))
 
+    # Left at the origin: the viewer positions it, exactly as it does the
+    # blades, so there is one place where the hub location is decided.
     rnac = B.build_nacelle(ra["nacelle_len"], ra["nacelle_dia"],
                            ra["spinner_len"], ra["spinner_dia"], "rnac")
     rnac.apply(M.rot_y(180.0))
@@ -127,14 +181,14 @@ def build():
         lambda r: max(math.degrees(math.atan2(2.0, 3.0 * lam * max(r / RR, 0.20))) - 5.0, 3.0),
         0.09, 0.035, "turbine_blade")
 
+    mast_cols = ["#7b838e", "#4a8ba6", "#3a7a94", "#2f6a83"]
     meshes = static + [
         ("motor_pylon", "#c45c3c", pyl),
         ("motor_nacelle", "#c45c3c", nac),
         ("prop_blade", "#a8492e", blade),
-        ("rat_arm", "#3a7a94", arm),
         ("rat_nacelle", "#3a7a94", rnac),
         ("turbine_blade", "#2e6478", tblade),
-    ]
+    ] + [(n, mast_cols[min(i, 3)], m) for i, (n, m) in enumerate(mast_meshes)]
     comps, quant = pack(meshes)
 
     m = AN.mass_rollup()
@@ -163,12 +217,16 @@ def build():
             "propR": R, "blades": mo["blades"],
             "bladeAzimuth": 78.0, "bladeFold": -78.0,
         },
-        "rat": {
-            "pivot": list(ra["pivot"]),
-            "deployed": ra["deployed_angle"], "stowed": ra["stowed_angle"],
-            "armLen": ra["arm_len"], "nacelleLen": ra["nacelle_len"],
+        "mast": {
+            "stages": [sg["name"] for sg in stack["stages"]],
+            "stageTravel": stack["geom"]["stage_travel"],
+            "stroke": stack["geom"]["stroke"],
+            "hubStowed": list(stack["hub"]),
+            "nacelleLen": ra["nacelle_len"],
             "rotorR": RR, "blades": ra["blades"],
-            "bladeAzimuth": 20.0, "bladeFold": 74.0,
+            "bladeAzimuth": 20.0, "bladeFold": -74.0,
+            "stationX": stack["x_c"],
+            "actuator": C.RAT_MAST["actuator"],
         },
     }
 
@@ -222,6 +280,7 @@ def build():
         "retraction": {k: {kk: round(vv, 4) for kk, vv in v.items()}
                        for k, v in AN.retraction_benefit().items()},
         "detect_rows": [{k: round(v, 5) for k, v in r.items()} for r in det["rows"]],
+        "mast": _mast_spec(),
         "polar": [{"v": round(r["V"], 2), "cl": round(r["CL"], 2),
                    "ld": round(r["LD"], 2), "sink": round(r["sink"], 3)}
                   for r in kp["sweep"] if round(r["CL"] * 100) % 5 == 0],

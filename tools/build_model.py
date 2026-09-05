@@ -25,6 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import airfoil as af
 import config as C
+import mast as MAST
 import mesh as M
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -145,6 +146,11 @@ def build_wing():
                  for p in tip])
     stbd = M.loft(secs, cap_start=True, cap_end=True, name="wing_stbd")
     return stbd, props
+
+
+def _ventral_table():
+    return (C.RAT_MAST_FAIRING if C.RAT_MOUNT == "mast"
+            else C.FUSELAGE["ventral_fairing"])
 
 
 def build_fuselage():
@@ -326,7 +332,9 @@ def build_turbine(deployed=True):
         if deployed:
             blade.apply(M.rot_x(360.0 * b / r["blades"] + 20.0))
         else:
-            blade.apply(M.rot_z(74.0))
+            # Folding blades fold DOWNSTREAM, back over the nacelle body --
+            # the rotor is upstream of the generator, so that is +X (aft).
+            blade.apply(M.rot_z(-74.0))
             blade.apply(M.rot_x(360.0 * b / r["blades"] + 20.0))
         rot.merge(blade, group_name=f"turbine_blade_{b}")
     return rot
@@ -447,6 +455,62 @@ def solar_layout():
             "p_stc_w": (wing_area + tail_area) * 1000.0 * s["cell_eff_stc"]}
 
 
+def rect_tube(ax, ay, x_c, z0, z1, name="tube", chamfer=1.2):
+    """Rectangular-section tube from z0 to z1, centred fore-aft on x_c."""
+    def ring(z):
+        hx, hy = ax / 2.0, ay / 2.0
+        c = chamfer
+        pts = [(hx - c, hy), (hx, hy - c), (hx, -hy + c), (hx - c, -hy),
+               (-hx + c, -hy), (-hx, -hy + c), (-hx, hy - c), (-hx + c, hy)]
+        return [(x_c + px, py, z) for (px, py) in pts]
+    return M.loft([ring(z0), ring(z0 + chamfer), ring(z1 - chamfer), ring(z1)],
+                  cap_start=True, cap_end=True, name=name)
+
+
+def mast_stack(deploy=1.0):
+    """Stage positions for the telescoping mast at a given deployment."""
+    g = MAST.geometry()
+    cfg = C.RAT_MAST
+    secs = MAST.tube_sizes(MAST.MAST, cfg["stages"])
+    x_c = cfg["station_x"]
+    top, bot = g["stack_top"], g["stack_bot"]
+    L = g["stage_len"]
+    e = g["stage_travel"] * deploy
+
+    stages = [{"name": "mast_trunk", "sec": secs[0],
+               "z0": bot, "z1": top, "drop": 0.0}]
+    for i in range(cfg["stages"]):
+        d = (i + 1) * e
+        stages.append({"name": f"mast_stage{i + 1}", "sec": secs[i + 1],
+                       "z0": bot - d, "z1": bot - d + L, "drop": d})
+    hub_z = stages[-1]["z0"] - C.RAT["nacelle_dia"] / 2.0
+    return {"geom": g, "stages": stages, "x_c": x_c,
+            "hub": (x_c, 0.0, hub_z), "travel": e * cfg["stages"]}
+
+
+def build_mast_pod(deployed=True):
+    """Vertical telescoping mast carrying the turbine (RAT_MOUNT == 'mast')."""
+    st = mast_stack(1.0 if deployed else 0.0)
+    r = C.RAT
+    pod = M.Mesh("rat_mast")
+    for sg in st["stages"]:
+        ax, ay = sg["sec"]
+        pod.merge(rect_tube(ax, ay, st["x_c"], sg["z0"], sg["z1"], sg["name"]),
+                  group_name=sg["name"])
+
+    hub = st["hub"]
+    nac = build_nacelle(r["nacelle_len"], r["nacelle_dia"],
+                        r["spinner_len"], r["spinner_dia"], "rat_nacelle")
+    nac.apply(M.rot_y(180.0))
+    nac.apply(M.translate(*hub))
+    pod.merge(nac, group_name="rat_nacelle")
+
+    rot = build_turbine(deployed=deployed)
+    rot.apply(M.translate(hub[0] - r["nacelle_len"] * 0.5 - 4.0, 0.0, hub[2]))
+    pod.merge(rot, group_name="turbine_rotor")
+    return pod, hub
+
+
 def _interp_station(stns, y):
     y = min(max(y, stns[0]["y"]), stns[-1]["y"])
     for i in range(len(stns) - 1):
@@ -515,7 +579,7 @@ def assemble(deployed=True):
     a.merge(build_fuselage(), group_name="fuselage")
     a.merge(build_blister(C.FUSELAGE["dorsal_spine"], True, "dorsal_spine"),
             group_name="dorsal_spine")
-    a.merge(build_blister(C.FUSELAGE["ventral_fairing"], False, "ventral_fairing"),
+    a.merge(build_blister(_ventral_table(), False, "ventral_fairing"),
             group_name="ventral_fairing")
     a.merge(build_turret(), group_name="sensor_turret")
     vt = build_vtail()
@@ -523,7 +587,10 @@ def assemble(deployed=True):
     a.merge(vt.mirrored_y(), group_name="vtail_port")
     mp, mhub = build_motor_pod(deployed)
     a.merge(mp, group_name="motor_pod")
-    rp, rhub = build_rat_pod(deployed)
+    if C.RAT_MOUNT == "mast":
+        rp, rhub = build_mast_pod(deployed)
+    else:
+        rp, rhub = build_rat_pod(deployed)
     a.merge(rp, group_name="rat_pod")
     a.merge(build_solar_cells(), group_name="solar_cells")
     return a, props, mhub, rhub
@@ -550,12 +617,14 @@ def main():
                     ("wing_port", wing.mirrored_y()),
                     ("fuselage", build_fuselage()),
                     ("dorsal_spine", build_blister(C.FUSELAGE["dorsal_spine"], True, "s")),
-                    ("ventral_fairing", build_blister(C.FUSELAGE["ventral_fairing"], False, "v")),
+                    ("ventral_fairing", build_blister(_ventral_table(), False, "v")),
                     ("sensor_turret", build_turret()),
                     ("vtail_starboard", build_vtail()),
                     ("vtail_port", build_vtail().mirrored_y()),
                     ("motor_pod_deployed", build_motor_pod(True)[0]),
-                    ("rat_pod_deployed", build_rat_pod(True)[0])]:
+                    ("rat_pod_deployed",
+                     (build_mast_pod(True)[0] if C.RAT_MOUNT == "mast"
+                      else build_rat_pod(True)[0]))]:
         M.write_stl(m, os.path.join(PARTS, f"{name}.stl"), f"FF-1 {name}")
 
     bb_lo, bb_hi = dep.bounds()
@@ -577,10 +646,13 @@ def main():
         "solar_tail_strips": solar["tail_strips"],
         "fuselage": C.FUSELAGE["stations"],
         "dorsal_spine": C.FUSELAGE["dorsal_spine"],
-        "ventral_fairing": C.FUSELAGE["ventral_fairing"],
+        "ventral_fairing": _ventral_table(),
         "vtail": C.VTAIL,
         "motor": dict(C.MOTOR, hub_deployed=mhub, hub_stowed=mhub_s),
-        "rat": dict(C.RAT, hub_deployed=rhub, hub_stowed=rhub_s),
+        "rat": dict(C.RAT, mount=C.RAT_MOUNT,
+                    hub_deployed=rhub, hub_stowed=rhub_s),
+        "rat_mast": ({k: v for k, v in mast_stack(1.0).items() if k != "geom"}
+                     if C.RAT_MOUNT == "mast" else None),
         "bays": C.FUSELAGE["bays"],
         "bbox": {"min": bb_lo, "max": bb_hi},
         "mesh": {"vertices": len(dep.v), "triangles": len(dep.f)},

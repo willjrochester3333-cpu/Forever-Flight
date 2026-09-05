@@ -244,7 +244,7 @@ footer .fine{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spaci
           <span class="state"><b id="s-motor">pylon stowed</b></span>
         </div>
         <div class="ctl-row">
-          <span class="state rec"><b id="s-rat">turbine stowed</b></span>
+          <span class="state rec"><b id="s-rat">mast 0 / 128 mm</b></span>
         </div>
         <div class="seg" role="group" aria-label="Camera view">
           <button data-view="iso" aria-pressed="true">ISO</button>
@@ -310,7 +310,67 @@ footer .fine{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spaci
     </section>
 
     <section>
-      <div class="eyebrow">Sheet 2 — where the hours come from</div>
+      <div class="eyebrow">Sheet 2 — the deployment mast</div>
+      <div class="col">
+        <h2>VDM-1: straight down, on one micro actuator</h2>
+        <p class="lede">A pivoting arm swings the turbine's mass aft as it
+          deploys and moves the centre of gravity
+          <span class="mono" id="cg-swing">13.0</span> mm —
+          <span class="mono" id="cg-swing-mac">7.2</span> % of mean chord, most
+          of the static margin. A mast that only goes down moves it nothing.</p>
+        <p>The stroke falls straight out of the rotor and is not negotiable:
+          <span class="mono" id="mst-R">75</span> mm of rotor radius, plus
+          <span class="mono" id="mst-clr">30</span> mm of clearance to keep the
+          disc out of the fuselage's flow field, plus
+          <span class="mono" id="mst-env">23</span> mm for the stowed package
+          — <strong><span class="mono" id="mst-stroke">128</span> mm</strong>,
+          whatever else changes.</p>
+        <p>That is the whole problem. The fuselage is
+          <span class="mono" id="mst-avail">73</span> mm deep at this station,
+          so a single sliding mast would stand
+          <span class="mono">125</span> mm proud of the deck when retracted.
+          <strong>Telescoping is not a refinement here, it is the only way the
+          travel fits.</strong> Three stages nest to
+          <span class="mono" id="mst-nested">70.7</span> mm and the reduction
+          chain means the actuator only has to move
+          <span class="mono" id="mst-act">42.7</span> mm.</p>
+      </div>
+
+      <div class="modes" id="mast-cards"></div>
+
+      <div class="scroll"><table id="mast-table"><tbody></tbody></table></div>
+
+      <div class="col">
+        <h3 style="margin:26px 0 10px">Choosing the actuator</h3>
+        <p>The design load is
+          <span class="mono" id="mst-load">10.7</span> N — joint friction from
+          the air load reacted as bushing couples, plus the moving mass under a
+          3 g retract, times 1.5 for stiction. Through the 1:3 chain that is
+          <span class="mono" id="mst-need">41</span> N at the actuator.</p>
+      </div>
+
+      <div class="scroll"><table id="act-table"><thead><tr>
+        <th>Actuator class</th><th class="n">Stroke</th><th class="n">Force</th>
+        <th class="n">Mass</th><th class="n">Body</th><th class="n">Deploy</th>
+        <th class="n">Margin</th><th>Verdict</th></tr></thead><tbody></tbody></table></div>
+
+      <div class="warnbox">
+        <p><b>Two things that will bite</b>
+          The rotor's once-per-revolution imbalance runs to
+          <span class="mono" id="mst-1p">133</span> Hz at the top of the
+          operating band. Round tubes put the mast's first bending mode right on
+          it; rectangular sections deep in the fore-aft direction — where the
+          air load actually is — move it to
+          <span class="mono" id="mst-f1">496</span> Hz, a factor of
+          <span class="mono" id="mst-ratio">3.7</span> clear. Second: the
+          actuator's lead screw is the <em>only</em> thing holding the mast in
+          flight, so it must be a self-locking ratio, verified with power off
+          and the full air load applied.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow">Sheet 3 — where the hours come from</div>
       <div class="two">
         <div>
           <h2>Solar, plus knowing how to find a thermal</h2>
@@ -342,7 +402,7 @@ footer .fine{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spaci
     </section>
 
     <section>
-      <div class="eyebrow">Sheet 3 — how it flies</div>
+      <div class="eyebrow">Sheet 4 — how it flies</div>
       <div class="two">
         <div>
           <h2>The speed polar</h2>
@@ -365,7 +425,7 @@ footer .fine{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spaci
     </section>
 
     <section>
-      <div class="eyebrow">Sheet 4 — what it sees</div>
+      <div class="eyebrow">Sheet 5 — what it sees</div>
       <div class="col">
         <h2>Sub-pixel fire detection</h2>
         <p class="lede">At 400 m the thermal core resolves 2.71 m per pixel — far
@@ -397,7 +457,7 @@ footer .fine{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spaci
     </section>
 
     <section>
-      <div class="eyebrow">Sheet 5 — what the mechanism costs</div>
+      <div class="eyebrow">Sheet 6 — what the mechanism costs</div>
       <div class="col">
         <h2>Retraction is right, but it is not transformative</h2>
         <p style="margin-top:14px">Folding the pods away is worth less than intuition
@@ -540,6 +600,47 @@ tb("stab").innerHTML = [
   ["Root bending, 5 g", S.m_root.toFixed(1)+" N·m"],
   ["Tip deflection, 1 g", S.tip_defl_1g+" mm"],
 ].map(([k,v])=>`<tr><td>${k}</td><td class="n mono">${v}</td></tr>`).join("");
+
+/* ---------- mast ---------- */
+const MS=S.mast;
+[["cg-swing",MS.cg_swing_mm],["cg-swing-mac",MS.cg_swing_mac],
+ ["mst-R",MS.rotor_R],["mst-clr",MS.clearance],["mst-env",MS.env_r],
+ ["mst-stroke",MS.stroke],["mst-avail",MS.avail],["mst-nested",MS.nested],
+ ["mst-act",MS.actuator_stroke],["mst-load",MS.load_N],["mst-need",MS.need_N],
+ ["mst-1p",MS.onep],["mst-f1",MS.f1],["mst-ratio",MS.ratio]].forEach(([k,v])=>set(k,v));
+
+document.getElementById("mast-cards").innerHTML = [
+  ["Stroke","b",MS.stroke+" mm","Rotor radius + clearance + stowed envelope. Independent of stage count, station or fuselage depth — it is set by the rotor alone."],
+  ["Actuator travel","c",MS.actuator_stroke+" mm","Three stages driven by chained rack–pinion–rack doublers at 1:2:3. Positive drive both ways, no cables to tension, no dead centres."],
+  ["Cost to the aircraft","a",(MS.dmass>0?"+":"")+MS.dmass+" g","Sink rate "+(MS.sink_pct>0?"+":"")+MS.sink_pct+" %, and the deployment CG shift goes to zero. Endurance still closes above eight hours."],
+].map(([h,c,v,p])=>`<div><h3 class="${c}">${h}</h3><span class="val ${c}">${v}</span><p>${p}</p></div>`).join("");
+
+tb("mast-table").innerHTML = [
+  ["Station", "x = "+MS.stationX+" mm, on the wing trailing-edge bulkhead"],
+  ["Stages", MS.stages+" moving, nesting to "+MS.nested+" mm of "+MS.avail+" mm available"],
+  ["Sections", MS.sections.map(a=>a[0]+"×"+a[1]).join(" → ")+" mm, "+MS.stage_len+" mm long"],
+  ["Retained overlap", MS.overlap+" mm at full extension"],
+  ["Nacelle travel", "z "+MS.z_stow+" → "+MS.z_dep+" mm ("+MS.below_keel+" mm below the keel)"],
+  ["Ventral fairing", MS.fairing+" mm deep"],
+  ["Air load, rotor braked", MS.drag_N+" N at "+MS.v_retract+" m/s"],
+  ["Worst bushing couple", MS.bush_N+" N"],
+  ["Joint friction", MS.friction_N+" N"],
+  ["Moving mass", MS.moving_g+" g"],
+  ["Tip deflection", (MS.defl<0.01?"under 0.01":MS.defl)+" mm elastic + "+MS.lash+" mm joint lash"],
+  ["First bending mode", MS.f1+" Hz vs "+MS.onep+" Hz rotor 1P ("+MS.ratio+"×)"],
+].map(([k,v])=>`<tr><td>${k}</td><td class="n mono">${v}</td></tr>`).join("");
+
+tb("act-table").innerHTML = MS.actuators.map(a=>{
+  const v = a.ok ? '<span class="flag f-good">use this</span>'
+    : (!a.stroke_ok ? '<span class="flag f-no">stroke short</span>'
+       : (a.margin < 2 ? '<span class="flag f-warn">thin margin</span>'
+                       : '<span class="flag f-warn">heavy</span>'));
+  return `<tr${a.ok?' class="hi"':''}><td class="mono">${a.name}</td>
+    <td class="n">${a.stroke} mm</td><td class="n">${a.force} N</td>
+    <td class="n">${a.mass} g</td><td class="n">${a.body} mm</td>
+    <td class="n">${a.deploy_s} s</td><td class="n">${a.margin}×</td>
+    <td>${v}</td></tr>`;
+}).join("");
 
 /* ---------- endurance bars ---------- */
 const cases = [
@@ -684,11 +785,25 @@ function podRig(cfg,strutName,nacName,bladeName){
   return {arm,nac,hub,blades,cfg};
 }
 const motor=podRig(RIG.motor,"motor_pylon","motor_nacelle","prop_blade");
-const rat  =podRig(RIG.rat,"rat_arm","rat_nacelle","turbine_blade");
+
+/* VDM-1: the trunk is fixed and stage i drops i x stageTravel x deployment.
+   Everything was exported in the stowed pose, so this is a pure translate. */
+const MG=RIG.mast;
+const mastStages=MG.stages.map((n,i)=>{
+  const g=new THREE.Group(); g.add(mesh(n)); root.add(g);
+  return {g,i};
+});
+const ratNac=new THREE.Group(); ratNac.add(mesh("rat_nacelle")); root.add(ratNac);
+const ratHub=new THREE.Group(); root.add(ratHub);
+const ratBlades=[];
+for(let i=0;i<MG.blades;i++){
+  const az=new THREE.Group(), fold=new THREE.Group();
+  fold.add(mesh("turbine_blade")); az.add(fold); ratHub.add(az);
+  ratBlades.push({az,fold,base:MG.bladeAzimuth+360*i/MG.blades});
+}
 
 const shortest=(a,b)=>((b-a+540)%360)-180;
 const mDelta=shortest(RIG.motor.stowed,RIG.motor.deployed);
-const rDelta=shortest(RIG.rat.stowed,RIG.rat.deployed);
 
 function poseP(rig,angle,fold,hubDX,axisTilt,spin){
   const c=rig.cfg;
@@ -707,15 +822,27 @@ function poseP(rig,angle,fold,hubDX,axisTilt,spin){
 
 let t=0, spinOn=false, spin=0;
 function pose(){
-  const mA=RIG.motor.stowed+mDelta*t, rA=RIG.rat.stowed+rDelta*t;
+  const mA=RIG.motor.stowed+mDelta*t;
   poseP(motor,mA,RIG.motor.bladeFold*(1-t),RIG.motor.nacelleLen*0.5,
         -RIG.motor.thrustAngle,spin);
-  poseP(rat,rA,RIG.rat.bladeFold*(1-t),-RIG.rat.nacelleLen*0.5-4,0,-spin*1.7);
+
+  /* model +Z (up) maps to three +Y, so a downward drop is -Y */
+  mastStages.forEach(({g,i})=>{ g.position.y = -(i*MG.stageTravel*t)/1000; });
+  const dropY = -(MG.stages.length-1)*MG.stageTravel*t/1000;
+  const hubT = M2T(MG.hubStowed[0], MG.hubStowed[1], MG.hubStowed[2]);
+  ratNac.position.set(hubT.x, hubT.y+dropY, hubT.z);
+  ratHub.position.set(hubT.x, hubT.y+dropY,
+                      hubT.z - (MG.nacelleLen*0.5+4)/1000);
+  ratBlades.forEach(b=>{
+    b.az.rotation.z=(b.base-spin*1.7)*DEG;
+    b.fold.rotation.y=MG.bladeFold*(1-t)*DEG;
+  });
   const on=t>0.5;
   document.getElementById("tb-cfg").textContent=
     t<0.02?"STOWED":(t>0.98?"DEPLOYED":"IN TRANSIT "+Math.round(t*100)+"%");
   document.getElementById("s-motor").textContent=on?"pylon deployed":"pylon stowed";
-  document.getElementById("s-rat").textContent=on?"turbine deployed":"turbine stowed";
+  document.getElementById("s-rat").textContent=
+    "mast "+Math.round(MG.stroke*t)+" / "+Math.round(MG.stroke)+" mm";
 }
 
 /* fit + orbit */

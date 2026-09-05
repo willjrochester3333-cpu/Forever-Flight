@@ -41,6 +41,9 @@ PALETTE = {
     "ventral_fairing": (176, 180, 186), "sensor_turret": (74, 78, 84),
     "vtail_stbd": (206, 209, 213), "vtail_port": (206, 209, 213),
     "motor_pod": (196, 92, 60), "rat_pod": (58, 122, 148),
+    "mast_trunk": (92, 100, 110), "mast_stage1": (70, 132, 156),
+    "mast_stage2": (58, 122, 148), "mast_stage3": (46, 110, 136),
+    "rat_nacelle": (58, 122, 148), "turbine_rotor": (46, 110, 136),
     "solar_cells": (28, 34, 46),
 }
 

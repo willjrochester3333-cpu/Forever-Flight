@@ -8,11 +8,11 @@ retractable motor pylon and a retractable energy-recovery turbine.
 | | |
 |---|---|
 | Span | 2.00 m |
-| MTOW | 1518 g |
-| Best glide | L/D 17.6 at 9.2 m/s |
-| Minimum sink | 0.50 m/s |
-| **Endurance** | **10.1 h** (solar + thermal soaring, 38° N, August) |
-| Endurance, battery only | 1.5 h |
+| MTOW | 1622 g |
+| Best glide | L/D 17.6 at 9.5 m/s |
+| Minimum sink | 0.51 m/s |
+| **Endurance** | **10.0 h** (solar + thermal soaring, 38° N, August) |
+| Endurance, battery only | 1.4 h |
 | Survey coverage | 10.1 km²/h → 81 km² per sortie |
 | Detection floor | ~0.5–1 m² of active flame, clutter-limited |
 
@@ -40,6 +40,7 @@ That part closes with about 25 % margin. Full working in
 |---|---|
 | [docs/DESIGN.md](docs/DESIGN.md) | The design plan — configuration, aerodynamics, structure, energy, mechanisms, autonomy, payload, flight test, risks |
 | [docs/ANALYSIS.md](docs/ANALYSIS.md) | Every computed number, generated from source |
+| [docs/VERTICAL_MAST.md](docs/VERTICAL_MAST.md) | VDM-1 — the telescoping vertical deployment mast and its micro linear actuator |
 | [docs/BUILD_MANUAL.md](docs/BUILD_MANUAL.md) | Bill of materials and construction sequence |
 
 ## The 3D model
@@ -82,6 +83,7 @@ and the detection performance all regenerate consistently.
 | `tools/mesh.py` | Triangle mesh kernel, STL and OBJ writers |
 | `tools/build_model.py` | Lofted airframe, deployable pods, solar cell layout |
 | `tools/analysis.py` | Drag build-up, polar, turbine physics, clear-sky solar model, mission simulation, stability, wing beam, LWIR detection |
+| `tools/mast.py` | VDM-1 sizing: stroke, stage count, drive loads, actuator selection, resonance |
 | `tools/render.py` | Z-buffered PNG renderer for the three-views |
 
 ## Status

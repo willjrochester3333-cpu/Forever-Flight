@@ -198,6 +198,47 @@ RAT = {
 }
 
 # ==========================================================================
+# 6b. VERTICAL DEPLOYMENT MAST (VDM-1) -- alternative to the swing arm
+# ==========================================================================
+# Telescoping vertical mast driven by one micro linear actuator. Geometry is
+# solved by tools/mast.py, which is the authority; the values it needs are
+# here and the derived ones (stroke, stage travel, sections) come from it at
+# build time so the two cannot drift apart.
+
+RAT_MOUNT = "mast"          # "swing" (baseline pivoting arm) or "mast"
+
+RAT_MAST = {
+    "station_x": 425.0,
+    "stages": 3,
+    "trunk_x": 34.0,            # fore-aft: the air load is fore-aft
+    "trunk_y": 22.0,
+    "wall": 0.8,
+    "nest_gap": 1.0,
+    "actuator": {
+        "model": "L12-50-210:1 class",
+        "stroke_mm": 50.0, "used_mm": 42.7, "force_N": 80.0,
+        "speed_mm_s": 6.0, "mass_g": 40.0, "body_mm": 101.0,
+        "x0": 470.0, "z": 2.0,          # body runs aft from here
+        "bellcrank_ratio": 1.0,
+        "pivot": (447.0, 0.0, 6.0), "arm_mm": 30.0,
+    },
+    "reduction": "rack-pinion-rack doublers, 1:2:3",
+    "bushing_mu": 0.12,
+    "v_retract_max": 20.0,      # m/s -- above this, do not move the mast
+    "detent": "2 x 4 N magnetic, stowed",
+}
+
+# Ventral fairing for the mast variant: shorter and slightly deeper than the
+# swing-arm blister, because it only has to cover the stowed rotor.
+RAT_MAST_FAIRING = [
+    (352.0,  5.0,   3.0),
+    (382.0, 22.0,  30.0),
+    (425.0, 25.0,  36.0),
+    (470.0, 21.0,  31.0),
+    (515.0,  6.0,   4.0),
+]
+
+# ==========================================================================
 # 7. MASS BUDGET (grams)
 # ==========================================================================
 # Every line is an installed mass: part + adhesive + fasteners + its share of
@@ -219,7 +260,15 @@ MASS = [
     ("Recovery",    "Turbine rotor + hub",                   18.0,   3.0),
     ("Recovery",    "Generator (low-Kv, custom wound)",      44.0,   5.0),
     ("Recovery",    "Regen controller (FOC)",                26.0,   3.0),
-    ("Recovery",    "Swing arm, latch, bay doors",           38.0,   6.0),
+    # VDM-1 vertical mast (RAT_MOUNT = "mast"). Swap this block for the
+    # single 38 g swing-arm line to price the baseline.
+    ("Recovery",    "Mast: fixed trunk + bulkhead doublers",  16.0,   3.0),
+    ("Recovery",    "Mast: 3 telescoping stages",             32.0,   5.0),
+    ("Recovery",    "Mast: pinions, bushings, racks",         10.0,   2.0),
+    ("Recovery",    "Micro linear actuator + mount",          46.0,   4.0),
+    ("Recovery",    "Bellcrank, con-rod, pivots",              9.0,   2.0),
+    ("Recovery",    "Bay doors, cam, wiper seal",             14.0,   3.0),
+    ("Recovery",    "End sensors, magnets, wiring",            9.0,   2.0),
     ("Energy",      "Li-ion 3S1P 21700 (5.0 Ah cells)",     212.0,   6.0),
     ("Energy",      "BMS, fuse, pack wiring, tray",          27.0,   4.0),
     ("Energy",      "Solar cells (installed)",              104.0,   8.0),

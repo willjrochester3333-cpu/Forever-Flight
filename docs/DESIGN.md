@@ -32,9 +32,9 @@ Mode C is the one that genuinely earns the turbine's 126 g. It is the same
 argument that puts a ram air turbine in an airliner.
 
 **The eight hours come from somewhere else: a solar array and autonomous
-thermal soaring.** On batteries alone this aircraft flies for 1.5 hours. With
-the array and thermals it flies for 10.1 hours in August at 38° N, and 10.2
-hours in late June at 51.5° N — the target is met with roughly 25 % margin.
+thermal soaring.** On batteries alone this aircraft flies for 1.4 hours. With
+the array and thermals it flies for 10.0 hours in August at 38° N, and
+10.0 hours in late June at 51.5° N — the target is met with 25 % margin.
 
 Everything below is built on that.
 
@@ -60,15 +60,15 @@ mission in.*
 | Aspect ratio | 11.17 |
 | Mean aerodynamic chord | 181.8 mm |
 | Length overall | 1.19 m |
-| MTOW | 1518 g |
-| Wing loading | 41.6 N/m² (4.24 kg/m²) |
+| MTOW | 1622 g |
+| Wing loading | 44.4 N/m² (4.53 kg/m²) |
 | Aerofoil | FF-SC1, 9.48 % thick, 2.76 % camber — a solar-flattened SD7037-class section |
-| Best glide | **L/D 17.6 at 9.2 m/s** |
-| Minimum sink | **0.50 m/s at 8.7 m/s** |
-| Stall | 7.54 m/s clean, 6.77 m/s with flap |
-| Powered cruise | 15.1 W electrical at 9.2 m/s |
-| Climb | 83 W electrical for 2.5 m/s |
-| Endurance | 10.1 h (38° N, August), 1.5 h on batteries alone |
+| Best glide | **L/D 17.6 at 9.5 m/s** |
+| Minimum sink | **0.51 m/s at 9.0 m/s** |
+| Stall | 7.79 m/s clean, 7.00 m/s with flap |
+| Powered cruise | 16.7 W electrical at 9.5 m/s |
+| Climb | 89 W electrical for 2.5 m/s |
+| Endurance | 10.0 h (38° N, August), 1.4 h on batteries alone |
 | Survey coverage | 10.1 km²/h with 30 % sidelap; 81 km² per sortie |
 
 ### 1.1 Why this layout
@@ -179,11 +179,11 @@ Carbon/foam wing, moulded pod, tapered carbon boom.
 | | |
 |---|---|
 | Limit load factor | 5 g (ultimate 7.5 g) |
-| Root bending moment | 15.8 N·m |
+| Root bending moment | 16.9 N·m |
 | Spar caps | 9 mm wide, 3 plies of 115 g/m² UD carbon at the root, dropped to 1 ply at 70 % semi-span |
-| Root cap stress at limit | 321 MPa (≈ 700 MPa allowable, T700 UD) |
+| Root cap stress at limit | 343 MPa (≈ 700 MPa allowable, T700 UD) |
 | Root EI | 51 N·m² |
-| Tip deflection | 17 mm at 1 g, 85 mm at limit |
+| Tip deflection | 18 mm at 1 g, 91 mm at limit |
 
 **The wing is stiffness-driven, not strength-driven.** The cap laminate is set
 by wanting a flat, unstressed array — a flexing wing cracks cells and works
@@ -249,8 +249,8 @@ a growth item.
 3S1P 21700, 52.8 Wh nameplate, **38.9 Wh usable** after 85 % depth of
 discharge and a 6 Wh approach reserve.
 
-Cell selection is set by the **climb** case, not by capacity: 83 W at 11.1 V
-is 7.5 A, so cells must be rated ≥ 10 A continuous. The tempting
+Cell selection is set by the **climb** case, not by capacity: 89 W at 11.1 V
+is 8.0 A, so cells must be rated ≥ 10 A continuous. The tempting
 high-capacity, low-current 21700s are the wrong part — take the 5.0 Ah /
 25 A cell over the 5.0 Ah / 7 A one.
 
@@ -308,16 +308,26 @@ reduce the trim change; expect to fine-tune this on the first flights.
 | Design point | λ = 2.5, C_p 0.36 |
 | Generator | Low-Kv outrunner, ~380 Kv, 44 g |
 | Controller | Field-oriented regen controller into the 12 V bus |
-| Pivot | x = 560 mm, ventral |
-| Deployed | −78°; hub at x = 587 mm, z = −147 mm; disc from −72 to −222 mm |
-| Stowed | 176° — the arm lies forward along the keel, blades folded |
+| **Mounting** | **VDM-1 vertical telescoping mast** — see [VERTICAL_MAST.md](VERTICAL_MAST.md) |
+| Station | x = 425 mm, on the wing trailing-edge bulkhead |
+| Stroke | 128 mm straight down, from 42.7 mm of micro-linear-actuator travel |
+| Deployed | Nacelle at z = −175 mm; disc from −100 to −250 mm |
 | Output | 8.1 W at 15 m/s, 19.3 W at 20 m/s, 37.7 W at 25 m/s |
 | Deployment penalty | ΔC_D0 0.0033, plus the extraction drag |
 
 **The rotor was resized during design.** A 110 mm rotor produced 1.3 W at
 cruise speed and was not worth carrying. Power goes as R² and as V³, so the
 fix was a bigger rotor and a rule that it only runs fast. Folding blades let a
-150 mm rotor stow in a 30 mm deep ventral bay.
+150 mm rotor stow in a shallow ventral bay.
+
+**The mounting changed too.** The original swing arm moved the pod 157 mm aft
+on deployment, shifting the CG +12.9 mm — 7.1 % of mean chord, taking static
+margin from 20 % down to 13 % at the moment the turbine extends. A mast that
+only translates vertically shifts it by nothing, keeps the rotor axis aligned
+with the flow through the whole travel, and makes deployment depth a
+continuous variable. It costs +90 g and 3.4 % of sink rate. The full sizing,
+including why 128 mm of travel has to telescope to fit inside a 73 mm deep
+fuselage, is in [VERTICAL_MAST.md](VERTICAL_MAST.md).
 
 ### 6.1 Control law
 
@@ -339,12 +349,13 @@ C.  emergency:      bus_voltage < 10.2 V  OR  mppt_fault  OR  pack_fault
 and it must disengage, and the arm must retract, when **any** of these is true:
 
 ```
-    altitude < 25 m AGL          (mandatory — the rotor hangs 222 mm below
+    altitude < 25 m AGL          (mandatory — the rotor hangs 216 mm below
                                   the keel and there is no landing gear)
     airspeed < 14 m/s            (below this it costs more than it makes)
     state_of_charge > 97 %
     bank angle > 45° for > 3 s   (asymmetric inflow, blade root loads)
     any deployment fault
+    airspeed > 20 m/s            (mast load limit -- see VERTICAL_MAST.md §7)
 ```
 
 Implement the interlocks in the flight controller's Lua scripting layer, and
@@ -401,7 +412,7 @@ banking hard in a thermal wrecks the sensor geometry anyway.
 | Survey altitude | 400 m AGL |
 | Ground swath | 434 m |
 | Ground sample distance | 2.71 m/pixel (7.4 m² per pixel) |
-| Coverage | 10.1 km²/h with 30 % sidelap → **81 km² per 8 h sortie** |
+| Coverage | 10.4 km²/h with 30 % sidelap → **83 km² per 8 h sortie** |
 
 ### 8.1 Sub-pixel detection
 
@@ -447,9 +458,9 @@ link. Do not attempt to make the aircraft the arbiter of what is a fire.
 
 ## 9. Mass, balance and deployment effects
 
-MTOW **1518 g**, ±35 g RSS on the itemised total, with a 6 % growth allowance
+MTOW **1622 g**, ±35 g RSS on the itemised total, with a 6 % growth allowance
 already included. The energy system (pack, cells, encapsulation, MPPT) is the
-single biggest group at 419 g — 29 % of the aircraft.
+single biggest group at 419 g — 27 % of the aircraft.
 
 | | |
 |---|---|
@@ -460,7 +471,7 @@ single biggest group at 419 g — 29 % of the aircraft.
 
 The battery sits on a **sliding tray** at x = 160–235 mm precisely so the CG
 can be trimmed without ballast; 212 g of pack moving 20 mm shifts the CG about
-2.8 mm, or 1.5 % MAC.
+2.6 mm, or 1.4 % MAC.
 
 Deploying either pod moves mass aft and away from the datum. Both are aft of
 the CG, so both deployments trim slightly nose-up and both are mildly
@@ -474,10 +485,10 @@ schedule deployments at level cruise, never in a turn or on approach.
 
 | Option | MTOW | C_D0 stowed | L/D | sink | ΔC_D0 running |
 |---|---|---|---|---|---|
-| Deployable dorsal pylon (baseline, as requested) | 1518 g | 0.0247 | 17.6 | 0.522 m/s | 0.0025 |
-| Nose folding prop (Variant N) | 1447 g | 0.0231 | 18.2 | 0.498 m/s | 0.0003 |
+| Deployable dorsal pylon (baseline, as requested) | 1622 g | 0.0247 | 17.6 | 0.540 m/s | 0.0025 |
+| Nose folding prop (Variant N) | 1551 g | 0.0231 | 18.2 | 0.516 m/s | 0.0003 |
 
-**Variant N is 71 g lighter, has 4.6 % less sink, and has no mechanism to
+**Variant N is 71 g lighter, has 4.5 % less sink, and has no mechanism to
 jam** — it deletes the pylon, its actuator, its doors and the dorsal spine
 that swallows it. Because the sensor turret is ventral, the nose is free for a
 folding prop.
@@ -535,7 +546,7 @@ is a serious projectile. Balance the rotor, proof-load the folding hinges to
 | **Optimistic prop efficiency** | 0.68 is a hopeful figure at this Reynolds number | Phase 2 measures it. If it comes in at 0.60, cruise power rises to 17 W and endurance falls about 8 % — the budget absorbs it |
 | **Hotel load growth** | Directly erodes endurance | 7.9 W is a budget, not an estimate. Meter each rail on the bench and hold each subsystem to its line |
 | **Thermal detection false alarms** | Operationally worse than a miss | Contextual + temporal + visible cross-check (§8.1); report confidence, never a binary |
-| **Overcast or winter operation** | Endurance falls to roughly the battery-only 1.5 h | Not a design fix. This is a fair-weather, fire-season aircraft. State it in the ConOps |
+| **Overcast or winter operation** | Endurance falls to roughly the battery-only 1.4 h | Not a design fix. This is a fair-weather, fire-season aircraft. State it in the ConOps |
 
 ---
 
