@@ -1,0 +1,789 @@
+<title>FF-1 Ember</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#eaeef3; --sheet:#ffffff; --sheet-2:#f5f8fa; --viewport:#dde4ec;
+  --ink:#131a21; --ink-2:#465562; --ink-3:#7b8b99;
+  --rule:#cfd8e1; --rule-strong:#94a4b3;
+  --power:#a8481c; --recover:#1c6980; --warn:#856012; --good:#2c6742;
+  --grid:#c3ccd6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0b1015; --sheet:#131b21; --sheet-2:#182027; --viewport:#080d11;
+    --ink:#e3eaf0; --ink-2:#9bacb9; --ink-3:#6d8090;
+    --rule:#25303a; --rule-strong:#3d4f5c;
+    --power:#e2814f; --recover:#5cbad8; --warn:#d2a748; --good:#6dbb8c;
+    --grid:#222d36;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0b1015; --sheet:#131b21; --sheet-2:#182027; --viewport:#080d11;
+  --ink:#e3eaf0; --ink-2:#9bacb9; --ink-3:#6d8090;
+  --rule:#25303a; --rule-strong:#3d4f5c;
+  --power:#e2814f; --recover:#5cbad8; --warn:#d2a748; --good:#6dbb8c;
+  --grid:#222d36;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:"Barlow","Helvetica Neue",Arial,sans-serif;
+  font-size:16px; line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.sheet{
+  max-width:1160px; margin:0 auto; background:var(--sheet);
+  border-left:1px solid var(--rule); border-right:1px solid var(--rule);
+  min-height:100vh;
+}
+.pad{padding:0 clamp(18px,4vw,52px)}
+.col{max-width:70ch}
+
+h1,h2,h3{font-family:"Barlow Condensed","Barlow",sans-serif; font-weight:600;
+  text-wrap:balance; margin:0; line-height:1.12; letter-spacing:.005em}
+h1{font-size:clamp(30px,5vw,50px); letter-spacing:.01em}
+h2{font-size:clamp(23px,3.1vw,31px)}
+h3{font-size:18px; letter-spacing:.02em; text-transform:uppercase}
+p{margin:0 0 .95em}
+a{color:var(--recover); text-underline-offset:3px; text-decoration-thickness:1px}
+strong{font-weight:600}
+code,.mono,td.n,th.n{font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-variant-numeric:tabular-nums}
+
+.eyebrow{
+  font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:500;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--ink-3);
+  display:flex; align-items:center; gap:12px; margin:0 0 14px;
+}
+.eyebrow::after{content:""; flex:1; height:1px; background:var(--rule)}
+
+/* ---------- masthead ---------- */
+.mast{
+  display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px 32px;
+  padding-top:clamp(26px,4vw,44px); padding-bottom:20px;
+  border-bottom:1px solid var(--rule);
+}
+.mast .id{flex:1 1 300px}
+.mast .sub{color:var(--ink-2); font-size:15.5px; max-width:56ch; margin:.5em 0 0}
+.mast .tag{
+  font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--ink-3);
+}
+
+/* ---------- viewer ---------- */
+.stage{position:relative; background:var(--viewport); border-bottom:1px solid var(--rule)}
+#cv{display:block; width:100%; height:clamp(360px,54vh,600px); touch-action:none; cursor:grab}
+#cv:active{cursor:grabbing}
+.stage.loading::after{
+  content:"Building geometry…"; position:absolute; inset:0; display:grid;
+  place-items:center; font-family:"IBM Plex Mono",monospace; font-size:12px;
+  letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3);
+}
+.overlay{
+  position:absolute; inset:auto 0 0 0; display:flex; flex-wrap:wrap;
+  align-items:flex-end; justify-content:space-between; gap:12px;
+  padding:clamp(10px,2vw,18px); pointer-events:none;
+}
+.block{
+  pointer-events:auto; background:color-mix(in srgb,var(--sheet) 88%,transparent);
+  border:1px solid var(--rule); backdrop-filter:blur(7px);
+}
+/* title block, as on a drawing sheet */
+.titleblock{display:grid; grid-template-columns:auto auto; font-family:"IBM Plex Mono",monospace;
+  font-size:10.5px; letter-spacing:.06em}
+.titleblock div{padding:5px 11px; border-top:1px solid var(--rule); white-space:nowrap}
+.titleblock div:nth-child(-n+2){border-top:0}
+.titleblock div:nth-child(odd){color:var(--ink-3); text-transform:uppercase;
+  border-right:1px solid var(--rule)}
+.titleblock div:nth-child(even){color:var(--ink); font-weight:500}
+
+.controls{display:flex; flex-direction:column; gap:9px; padding:11px 13px; min-width:236px}
+.ctl-row{display:flex; align-items:center; gap:9px}
+.ctl-lab{font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--ink-3); min-width:52px}
+input[type=range]{flex:1; accent-color:var(--power); height:18px; margin:0}
+.seg{display:flex; border:1px solid var(--rule)}
+.seg button{
+  flex:1; background:none; border:0; border-left:1px solid var(--rule);
+  color:var(--ink-2); font-family:"IBM Plex Mono",monospace; font-size:10px;
+  letter-spacing:.1em; padding:5px 7px; cursor:pointer;
+}
+.seg button:first-child{border-left:0}
+.seg button[aria-pressed=true]{background:var(--ink); color:var(--sheet)}
+.seg button:focus-visible,.toggle:focus-visible,input:focus-visible{
+  outline:2px solid var(--recover); outline-offset:1px}
+.toggle{
+  background:none; border:1px solid var(--rule); color:var(--ink-2); cursor:pointer;
+  font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.1em;
+  padding:5px 9px; text-transform:uppercase; flex:1;
+}
+.toggle[aria-pressed=true]{background:var(--ink); color:var(--sheet); border-color:var(--ink)}
+.state{
+  font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.08em;
+  color:var(--ink-3); text-transform:uppercase;
+}
+.state b{color:var(--power); font-weight:500}
+.state.rec b{color:var(--recover)}
+
+/* ---------- data strip ---------- */
+.strip{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(132px,1fr));
+  border-bottom:1px solid var(--rule);
+}
+.strip div{padding:15px clamp(10px,2vw,18px); border-left:1px solid var(--rule)}
+.strip div:first-child{border-left:0}
+.strip dt{font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--ink-3); margin:0 0 3px}
+.strip dd{margin:0; font-family:"IBM Plex Mono",monospace; font-size:20px;
+  font-weight:500; font-variant-numeric:tabular-nums; line-height:1.2}
+.strip dd small{font-size:12px; color:var(--ink-2); font-weight:400}
+
+/* ---------- sections ---------- */
+section{padding:clamp(34px,5vw,58px) 0; border-bottom:1px solid var(--rule)}
+section:last-of-type{border-bottom:0}
+.lede{font-size:18.5px; color:var(--ink-2); max-width:62ch; margin:14px 0 0}
+
+table{border-collapse:collapse; width:100%; font-size:14.5px; margin:0}
+.scroll{overflow-x:auto; margin:22px 0}
+th,td{padding:8px 14px 8px 0; text-align:left; border-bottom:1px solid var(--rule);
+  white-space:nowrap}
+th{font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--ink-3); font-weight:500;
+  border-bottom:1px solid var(--rule-strong)}
+td.n,th.n{text-align:right; padding-right:22px}
+tr.hi td{background:var(--sheet-2)}
+td .flag{font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.08em;
+  padding:1px 6px; border:1px solid currentColor; text-transform:uppercase}
+.f-good{color:var(--good)} .f-warn{color:var(--warn)} .f-no{color:var(--ink-3)}
+
+/* pull-quote / verdict — the one place with real emphasis */
+.verdict{
+  border-left:3px solid var(--power); padding:2px 0 2px 20px; margin:26px 0;
+  max-width:62ch;
+}
+.verdict p{font-family:"Barlow Condensed",sans-serif; font-size:clamp(20px,2.6vw,26px);
+  line-height:1.3; margin:0; font-weight:500}
+.verdict .why{font-family:"Barlow",sans-serif; font-size:15.5px; color:var(--ink-2);
+  margin:.7em 0 0; line-height:1.6; font-weight:400}
+
+.modes{display:grid; gap:1px; background:var(--rule); margin:26px 0;
+  grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}
+.modes>div{background:var(--sheet); padding:16px 18px}
+.modes h3{font-size:13px; color:var(--ink-3); margin-bottom:7px}
+.modes .val{font-family:"IBM Plex Mono",monospace; font-size:17px; font-weight:500;
+  display:block; margin-bottom:6px}
+.modes p{font-size:14.5px; color:var(--ink-2); margin:0; line-height:1.55}
+.modes .a{color:var(--ink-3)} .modes .b{color:var(--recover)} .modes .c{color:var(--good)}
+
+figure{margin:26px 0}
+figcaption{font-size:13.5px; color:var(--ink-3); margin-top:10px; max-width:60ch;
+  line-height:1.5}
+svg{display:block; max-width:100%; height:auto}
+.chart text{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums}
+
+.two{display:grid; gap:clamp(20px,4vw,44px); grid-template-columns:1fr}
+@media(min-width:840px){.two{grid-template-columns:1.05fr .95fr}}
+
+.bars{display:grid; gap:11px; margin:24px 0; max-width:640px}
+.bar{display:grid; grid-template-columns:130px 1fr 56px; gap:12px;
+  align-items:center; font-size:14px}
+.bar .lab{color:var(--ink-2)}
+.bar .track{height:15px; background:var(--sheet-2); border:1px solid var(--rule);
+  position:relative; overflow:hidden}
+.bar .fill{display:block; height:100%; background:var(--recover); opacity:.85}
+.bar .fill.short{background:var(--ink-3)}
+.bar .num{font-family:"IBM Plex Mono",monospace; font-weight:500; text-align:right}
+.tgt{position:relative; height:22px; max-width:640px; margin:-4px 0 0}
+.tgt span{position:absolute; top:0; font-family:"IBM Plex Mono",monospace;
+  font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--warn);
+  border-left:1px solid var(--warn); padding:0 0 0 6px; height:100%}
+
+footer{padding:34px 0 46px; color:var(--ink-3); font-size:13.5px}
+footer .fine{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.06em;
+  line-height:2; text-transform:uppercase}
+.warnbox{border:1px solid var(--warn); padding:15px 18px; margin:26px 0; max-width:66ch}
+.warnbox p{margin:0; font-size:14.5px; color:var(--ink-2)}
+.warnbox b{color:var(--warn); font-family:"IBM Plex Mono",monospace; font-size:11px;
+  letter-spacing:.12em; text-transform:uppercase; display:block; margin-bottom:6px}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+
+<div class="sheet">
+
+  <header class="mast pad">
+    <div class="id">
+      <div class="tag">Forever-Flight · design study</div>
+      <h1>FF-1 <span style="color:var(--ink-3)">Ember</span></h1>
+      <p class="sub">A 2 metre autonomous soaring glider that looks for wildfires,
+        with a motor pylon and an energy-recovery turbine that both fold into the
+        fuselage.</p>
+    </div>
+    <div class="tag">Drag to orbit · scroll to zoom</div>
+  </header>
+
+  <div class="stage loading" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="overlay">
+      <div class="block titleblock">
+        <div>Designation</div><div>FF-1 EMBER</div>
+        <div>Span</div><div id="tb-span">2000 mm</div>
+        <div>MTOW</div><div id="tb-mtow">1518 g</div>
+        <div>Config</div><div id="tb-cfg">STOWED</div>
+      </div>
+      <div class="block controls">
+        <div class="ctl-row">
+          <span class="ctl-lab">Pods</span>
+          <input id="deploy" type="range" min="0" max="100" value="0"
+                 aria-label="Pod deployment, 0 stowed to 100 deployed">
+        </div>
+        <div class="ctl-row">
+          <span class="state"><b id="s-motor">pylon stowed</b></span>
+        </div>
+        <div class="ctl-row">
+          <span class="state rec"><b id="s-rat">turbine stowed</b></span>
+        </div>
+        <div class="seg" role="group" aria-label="Camera view">
+          <button data-view="iso" aria-pressed="true">ISO</button>
+          <button data-view="plan" aria-pressed="false">PLAN</button>
+          <button data-view="side" aria-pressed="false">SIDE</button>
+          <button data-view="front" aria-pressed="false">FRONT</button>
+        </div>
+        <div class="ctl-row">
+          <button class="toggle" id="t-spin" aria-pressed="false">Spin rotors</button>
+          <button class="toggle" id="t-cells" aria-pressed="false">Array</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <dl class="strip" id="strip"></dl>
+
+  <main class="pad">
+
+    <section>
+      <div class="eyebrow">Sheet 1 — the problem</div>
+      <div class="col">
+        <h2>A dynamo cannot make the flight longer</h2>
+        <p class="lede">The brief asked for a wind-driven generator to charge the
+          aircraft and extend its endurance. That is the one thing it cannot do.</p>
+        <p>A turbine takes its power out of the airstream, and that extraction
+          appears as drag. Making <span class="mono" id="p20">19.3</span> W
+          electrically costs <span class="mono" id="ps20">29.8</span> W of shaft
+          power — at 20 m/s, about <span class="mono" id="d20">1.49</span> N of
+          extra drag, roughly a tenth of the aircraft's weight. Sink rate goes from
+          <span class="mono" id="sinkbase">0.52</span> m/s to 5.6. You always put
+          in more than you get back.</p>
+      </div>
+
+      <div class="scroll"><table id="rat-table"><thead><tr>
+        <th>Airspeed</th><th class="n">Power in the disc</th><th class="n">Shaft</th>
+        <th class="n">Electrical out</th><th class="n">Extraction drag</th>
+        <th class="n">Rotor</th></tr></thead><tbody></tbody></table></div>
+
+      <div class="verdict">
+        <p>So the turbine here is a regenerative recovery device with a hard
+          control law, not a charger.</p>
+        <p class="why">It runs only when the energy is genuinely surplus. Three
+          honest jobs, and the third is the one that earns its 126 grams.</p>
+      </div>
+
+      <div class="modes">
+        <div><h3 class="a">Mode A — surplus lift</h3>
+          <span class="val a">4 – 19 W</span>
+          <p>At the altitude ceiling with lift still coming up. Needs a 1.3–5.6 m/s
+             thermal to break even, so it is opportunistic, not a power plan.</p></div>
+        <div><h3 class="b">Mode B — regenerative descent</h3>
+          <span class="val b" id="regen-wh">0.48 Wh / 500 m</span>
+          <p>Any commanded descent. Modest, but it is energy you were going to throw
+             away as drag — and the turbine replaces the spoilers the wing would
+             otherwise need.</p></div>
+        <div><h3 class="c">Mode C — emergency power</h3>
+          <span class="val c">8.1 W at 15 m/s</span>
+          <p>Against a <span class="mono" id="hotel-w">7.9</span> W hotel load. With a
+             dead pack and a dead array it keeps the autopilot, GNSS and telemetry
+             alive the whole way down. This is why airliners carry one.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow">Sheet 2 — where the hours come from</div>
+      <div class="two">
+        <div>
+          <h2>Solar, plus knowing how to find a thermal</h2>
+          <p style="margin-top:14px">A <span class="mono" id="arr-stc">39.8</span> W
+            array of <span class="mono" id="arr-cells">11.33</span> cell equivalents
+            covers the wing's upper surface. Cells are cut into thirds so the 125 mm
+            dimension runs spanwise — the only curvature a strip has to follow is the
+            41.7 mm chordwise one, which is why the aerofoil's upper surface is held
+            to a <span class="mono" id="af-r">400</span> mm minimum radius through
+            the array band.</p>
+          <p>Powered level flight costs <span class="mono" id="cruise-w">15.1</span> W.
+            The avionics and payload cost <span class="mono">7.9</span> W whether the
+            motor runs or not — which means on this aircraft a watt saved in the
+            electronics is worth more than a drag count.</p>
+          <p>Autonomous thermal soaring is the margin that absorbs a hazy day. It is
+            not exotic: ArduPlane's variometer-based soaring controller does it in
+            tree, and it is the difference between meeting the requirement and
+            meeting it comfortably.</p>
+        </div>
+        <div>
+          <div class="bars" id="endurance-bars"></div>
+          <div class="tgt"><span id="tgt-mark">8 h requirement</span></div>
+          <p style="font-size:13.5px;color:var(--ink-3);max-width:46ch;margin-top:18px">
+            30-second-step simulation from a 09:00 launch at 38° N in August, clear
+            sky. Thermal availability modelled as a sine bell from 09:30 to 18:30
+            peaking at 75 % duty. Endurance ends when the usable pack is empty.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow">Sheet 3 — how it flies</div>
+      <div class="two">
+        <div>
+          <h2>The speed polar</h2>
+          <p style="margin-top:14px">Sink rate against airspeed, both pods stowed.
+            Best glide is where a line drawn from the origin is tangent to the curve —
+            the standard sailplane construction, shown below.</p>
+          <p>Minimum sink sits right on the stall, so it is unusable; the practical
+            soaring speed is 15 % above stall at
+            <span class="mono" id="vms">8.67</span> m/s for
+            <span class="mono" id="sms">0.50</span> m/s of sink.</p>
+          <div class="scroll"><table id="stab"><tbody></tbody></table></div>
+        </div>
+        <figure>
+          <div id="polar"></div>
+          <figcaption>C<sub>D0</sub> = <span class="mono" id="cd0">0.0247</span> from
+            a component build-up with a 15 % margin. At soaring lift coefficients
+            induced drag is about 60 % of the total.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow">Sheet 4 — what it sees</div>
+      <div class="col">
+        <h2>Sub-pixel fire detection</h2>
+        <p class="lede">At 400 m the thermal core resolves 2.71 m per pixel — far
+          coarser than any fire worth catching early. That does not matter, because
+          radiant exitance goes as T⁴.</p>
+        <p>A flame filling one percent of a pixel still drags that pixel's apparent
+          temperature up by tens of kelvin. The figures below come from integrating
+          Planck's law over the 8–14 µm band, which captures only 17 % of an 800 K
+          flame's emission against 38 % of the background's — LWIR is the
+          <em>unfavourable</em> band for small hot fires, and this already accounts
+          for it.</p>
+      </div>
+
+      <div class="scroll"><table id="det-table"><thead><tr>
+        <th>Flame area</th><th class="n">Pixel fill</th><th class="n">Apparent pixel T</th>
+        <th class="n">Δ vs background</th><th class="n">Δ / NETD</th><th>Single frame</th>
+      </tr></thead><tbody></tbody></table></div>
+
+      <div class="warnbox">
+        <p><b>The sensor is not the limit — clutter is</b>
+          Sun-baked rock, dark soil and asphalt reach 55–70 °C on a summer
+          afternoon: +28 to +43 K. Anything below that is indistinguishable from hot
+          ground in a single frame, which puts the real detection floor at roughly
+          0.5–1 m² of active flame, not the 0.05 m² the raw sensor noise implies.
+          Getting under it needs contextual thresholding against each pixel's own
+          neighbourhood, persistence across frames, and a visible-camera plume
+          cross-check.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow">Sheet 5 — what the mechanism costs</div>
+      <div class="col">
+        <h2>Retraction is right, but it is not transformative</h2>
+        <p style="margin-top:14px">Folding the pods away is worth less than intuition
+          suggests. Flying with <em>both</em> hanging out costs only
+          <span class="mono" id="both-pen">6.7</span> % in sink rate, because at
+          soaring lift coefficients induced drag dominates and a parasite-drag
+          increment gets diluted.</p>
+      </div>
+
+      <div class="scroll"><table id="retract"><thead><tr>
+        <th>Configuration</th><th class="n">C<sub>D0</sub></th><th class="n">L/D</th>
+        <th class="n">Sink</th><th class="n">Sink penalty</th>
+      </tr></thead><tbody></tbody></table></div>
+
+      <div class="col">
+        <p>The turbine has to retract regardless — it hangs 222 mm below the keel and
+          there is no landing gear. The motor is a genuine choice, and the honest
+          answer is that a plain nose-mounted folding prop wins on the numbers:</p>
+      </div>
+
+      <div class="scroll"><table id="variant"><thead><tr>
+        <th>Motor installation</th><th class="n">MTOW</th><th class="n">C<sub>D0</sub> stowed</th>
+        <th class="n">L/D</th><th class="n">Sink</th><th class="n">ΔC<sub>D0</sub> running</th>
+      </tr></thead><tbody></tbody></table></div>
+
+      <div class="col">
+        <p>The nose variant is 71 g lighter with 4.6 % less sink and nothing to jam,
+          and the sensor turret is slung <em>under</em> the nose rather than on it, so
+          the nose is free. The dorsal pylon buys three things back: prop clearance on
+          a belly landing, a nose kept free for a forward-looking sensor later, and a
+          thrust line above the drag line so power changes pitch the aircraft less.
+          The baseline keeps the pylon because that is what was asked for and the
+          penalty is small and real. If endurance is the only thing that matters,
+          build the nose variant.</p>
+      </div>
+    </section>
+
+    <footer>
+      <div class="fine">
+        Design study · nothing built or flown<br>
+        Every figure computed from a single parameter file — model, drawings, mass
+        budget, polar, energy budget and detection performance regenerate together<br>
+        Aerofoil is a mould definition, not a validated section
+      </div>
+      <p style="margin-top:20px;max-width:64ch">Flying near an active wildfire without
+        coordination with the incident commander is dangerous and illegal in most
+        jurisdictions — an unexpected aircraft grounds the air tankers. The useful
+        role for this thing is detection over unburnt ground during high fire-danger
+        periods, upstream of any incident.</p>
+    </footer>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>const MODEL=/*__MODEL__*/null;</script>
+<script>
+(function(){
+"use strict";
+const S = MODEL.spec, RIG = MODEL.rig, Q = MODEL.quant;
+const DEG = Math.PI/180;
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------- numbers into the prose ---------- */
+const set = (id,v)=>{const e=document.getElementById(id); if(e) e.textContent=v;};
+const r20 = S.rat_rows.find(r=>r.v===20), r15 = S.rat_rows.find(r=>r.v===15);
+set("p20", r20.p_elec.toFixed(1)); set("ps20", r20.p_shaft.toFixed(1));
+set("d20", r20.extraction_drag_N.toFixed(2)); set("sinkbase", S.sink_bg.toFixed(2));
+set("regen-wh", S.regen.recovered_wh.toFixed(2)+" Wh / 500 m");
+set("hotel-w", S.hotel_w); set("arr-stc", S.array_stc); set("arr-cells", S.array_cells);
+set("af-r", S.airfoil_r); set("cruise-w", S.cruise_w); set("cd0", S.cd0.toFixed(4));
+set("vms", S.v_min_sink.toFixed(2)); set("sms", S.sink_min.toFixed(2));
+set("tb-span", (S.span_m*1000).toFixed(0)+" mm"); set("tb-mtow", S.mtow_g+" g");
+set("both-pen", S.retraction["both deployed"].sink_penalty_pct.toFixed(1));
+
+/* ---------- key-figure strip ---------- */
+const strip = [
+  ["Span", S.span_m.toFixed(2), "m"],
+  ["MTOW", S.mtow_g, "g"],
+  ["Best glide", S.ld.toFixed(1), "L/D"],
+  ["Cruise", S.v_bg.toFixed(1), "m/s"],
+  ["Min sink", S.sink_min.toFixed(2), "m/s"],
+  ["Endurance", S.endurance_h.toFixed(1), "h"],
+  ["Coverage", S.coverage.toFixed(1), "km²/h"],
+];
+document.getElementById("strip").innerHTML = strip.map(([k,v,u])=>
+  `<div><dt>${k}</dt><dd>${v} <small>${u}</small></dd></div>`).join("");
+
+/* ---------- tables ---------- */
+const tb = id => document.querySelector("#"+id+" tbody");
+tb("rat-table").innerHTML = S.rat_rows.map(r=>{
+  const hi = r.v===20 ? ' class="hi"' : '';
+  return `<tr${hi}><td class="mono">${r.v} m/s</td>
+    <td class="n">${(r.p_shaft/0.36).toFixed(1)} W</td>
+    <td class="n">${r.p_shaft.toFixed(1)} W</td>
+    <td class="n"><strong>${r.p_elec.toFixed(1)} W</strong></td>
+    <td class="n">${r.extraction_drag_N.toFixed(2)} N</td>
+    <td class="n">${r.rpm.toLocaleString(undefined,{maximumFractionDigits:0})} rpm</td></tr>`;
+}).join("");
+
+tb("det-table").innerHTML = S.detect_rows.map(r=>{
+  const clutter = r.delta_k > 43;
+  const flag = clutter
+    ? '<span class="flag f-good">detectable</span>'
+    : (r.delta_k > 28 ? '<span class="flag f-warn">marginal</span>'
+                      : '<span class="flag f-no">lost in clutter</span>');
+  return `<tr${clutter?' class="hi"':''}><td class="mono">${r.fire_m2.toFixed(2)} m²</td>
+    <td class="n">${(r.fill_frac*100).toFixed(1)} %</td>
+    <td class="n">${r.T_app_c.toFixed(1)} °C</td>
+    <td class="n">+${r.delta_k.toFixed(1)} K</td>
+    <td class="n">${Math.round(r.snr).toLocaleString()}×</td>
+    <td>${flag}</td></tr>`;
+}).join("");
+
+const rk = ["both stowed","motor deployed","turbine deployed","both deployed"];
+tb("retract").innerHTML = rk.map(k=>{
+  const v = S.retraction[k];
+  return `<tr${k==="both stowed"?' class="hi"':''}><td>${k[0].toUpperCase()+k.slice(1)}</td>
+    <td class="n">${v.cd0.toFixed(4)}</td><td class="n">${v.LD.toFixed(1)}</td>
+    <td class="n">${v.sink.toFixed(3)} m/s</td>
+    <td class="n">${v.sink_penalty_pct>0.05?"+"+v.sink_penalty_pct.toFixed(1)+" %":"—"}</td></tr>`;
+}).join("");
+
+tb("variant").innerHTML = [
+  ["Deployable dorsal pylon <em>(baseline)</em>", S.variant.base],
+  ["Nose folding prop", S.variant.variant],
+].map(([n,v],i)=>`<tr${i?' class="hi"':''}><td>${n}</td>
+    <td class="n">${Math.round(v.mtow_g)} g</td>
+    <td class="n">${v.cruise_cd0.toFixed(4)}</td>
+    <td class="n">${v.LD.toFixed(1)}</td>
+    <td class="n">${v.sink.toFixed(3)} m/s</td>
+    <td class="n">${v.deployed_penalty.toFixed(4)}</td></tr>`).join("");
+
+tb("stab").innerHTML = [
+  ["Wing area", S.area_m2.toFixed(4)+" m²"], ["Aspect ratio", S.ar.toFixed(2)],
+  ["Wing loading", S.wing_loading.toFixed(1)+" N/m²"],
+  ["Stall, clean", S.v_stall.toFixed(2)+" m/s"],
+  ["Neutral point", S.np_mac.toFixed(1)+" % MAC"],
+  ["CG target", S.cg_mac.toFixed(1)+" % MAC ("+S.cg_mm+" mm)"],
+  ["Tail volume V<sub>h</sub> / V<sub>v</sub>", S.vh.toFixed(2)+" / "+S.vv.toFixed(3)],
+  ["Root bending, 5 g", S.m_root.toFixed(1)+" N·m"],
+  ["Tip deflection, 1 g", S.tip_defl_1g+" mm"],
+].map(([k,v])=>`<tr><td>${k}</td><td class="n mono">${v}</td></tr>`).join("");
+
+/* ---------- endurance bars ---------- */
+const cases = [
+  ["Solar + soaring", S.endurance_h, false],
+  ["Solar, no thermals", S.endurance_solar_h, false],
+  ["UK, late June", S.endurance_uk_h, false],
+  ["Battery only", S.endurance_batt_h, true],
+];
+const emax = 11;
+document.getElementById("endurance-bars").innerHTML = cases.map(([n,v,short])=>
+  `<div class="bar"><span class="lab">${n}</span>
+     <span class="track"><span class="fill${short?" short":""}" style="width:${v/emax*100}%"></span></span>
+     <span class="num">${v.toFixed(1)} h</span></div>`).join("");
+document.getElementById("tgt-mark").style.left =
+  `calc(142px + (100% - 210px) * ${S.target_h/emax})`;
+
+/* ---------- speed polar ---------- */
+(function(){
+  const W=520,H=380,ml=52,mr=18,mt=18,mb=44;
+  const x0=0, x1=17, y0=0, y1=1.6;
+  const px=v=>ml+(v-x0)/(x1-x0)*(W-ml-mr);
+  const py=s=>mt+(s-y0)/(y1-y0)*(H-mt-mb);
+  const pts=S.polar.filter(p=>p.v<=x1&&p.sink<=y1)
+                   .sort((a,b)=>a.v-b.v);
+  const path=pts.map((p,i)=>(i?"L":"M")+px(p.v).toFixed(1)+" "+py(p.sink).toFixed(1)).join(" ");
+  const bg=pts.reduce((a,p)=>p.ld>a.ld?p:a,pts[0]);
+  // tangent from the origin (0 speed, 0 sink) through the best-glide point
+  const k=bg.sink/bg.v, tx=x1, ty=k*tx;
+  let g="";
+  for(let v=0;v<=16;v+=4) g+=`<line x1="${px(v)}" y1="${mt}" x2="${px(v)}" y2="${H-mb}" stroke="var(--grid)" stroke-width="1"/>
+    <text x="${px(v)}" y="${H-mb+17}" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">${v}</text>`;
+  for(let s=0;s<=1.6;s+=0.4) g+=`<line x1="${ml}" y1="${py(s)}" x2="${W-mr}" y2="${py(s)}" stroke="var(--grid)" stroke-width="1"/>
+    <text x="${ml-9}" y="${py(s)+3.5}" text-anchor="end" font-size="10.5" fill="var(--ink-3)">${s.toFixed(1)}</text>`;
+  document.getElementById("polar").innerHTML=
+  `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img"
+     aria-label="Speed polar: sink rate against airspeed, best glide L/D ${S.ld.toFixed(1)} at ${S.v_bg.toFixed(1)} metres per second">
+    ${g}
+    <line x1="${px(0)}" y1="${py(0)}" x2="${px(tx)}" y2="${py(ty)}"
+          stroke="var(--ink-3)" stroke-width="1" stroke-dasharray="4 4"/>
+    <text x="${px(0)+7}" y="${py(0)+13}" font-size="10" fill="var(--ink-3)">tangent from origin</text>
+    <path d="${path}" fill="none" stroke="var(--recover)" stroke-width="2.2"
+          stroke-linejoin="round"/>
+    <circle cx="${px(bg.v)}" cy="${py(bg.sink)}" r="4.5" fill="var(--recover)"/>
+    <circle cx="${px(S.v_min_sink)}" cy="${py(S.sink_min)}" r="4.5" fill="none"
+            stroke="var(--power)" stroke-width="2"/>
+    <line x1="${px(bg.v)}" y1="${py(bg.sink)}" x2="${px(bg.v)+16}" y2="${py(bg.sink)+22}"
+          stroke="var(--ink-3)" stroke-width="1"/>
+    <text x="${px(bg.v)+20}" y="${py(bg.sink)+26}" font-size="11" fill="var(--ink-2)">
+      best glide · L/D ${S.ld.toFixed(1)}</text>
+    <line x1="${px(S.v_min_sink)}" y1="${py(S.sink_min)}" x2="${px(S.v_min_sink)-10}"
+          y2="${py(S.sink_min)-20}" stroke="var(--power)" stroke-width="1"/>
+    <text x="${px(S.v_min_sink)-13}" y="${py(S.sink_min)-24}" text-anchor="end"
+          font-size="11" fill="var(--power)">practical min sink ${S.sink_min.toFixed(2)}</text>
+    <text x="${ml}" y="${H-8}" font-size="10" letter-spacing="1.4" fill="var(--ink-3)">AIRSPEED  m/s</text>
+    <text x="14" y="${mt+10}" font-size="10" letter-spacing="1.4" fill="var(--ink-3)"
+          transform="rotate(-90 14 ${mt+10})" text-anchor="end">SINK  m/s</text>
+  </svg>`;
+})();
+
+/* ================= 3D viewer ================= */
+if(typeof THREE==="undefined"){
+  const st=document.getElementById("stage"); st.classList.remove("loading");
+  st.insertAdjacentHTML("beforeend",'<div style="position:absolute;inset:0;display:grid;'
+    +'place-items:center;font-family:\'IBM Plex Mono\',monospace;font-size:12px;'
+    +'letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);text-align:center;'
+    +'padding:20px">3D library unavailable — the figures below are unaffected</div>');
+}
+else{
+const cv=document.getElementById("cv"), stage=document.getElementById("stage");
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(30,2,0.05,60);
+const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+
+let clearCol=new THREE.Color("#dde4ec");
+function readTheme(){
+  const v=getComputedStyle(document.documentElement)
+            .getPropertyValue("--viewport").trim();
+  if(v) clearCol=new THREE.Color(v);
+}
+readTheme();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",readTheme);
+new MutationObserver(readTheme).observe(document.documentElement,
+  {attributes:true,attributeFilter:["data-theme"]});
+
+scene.add(new THREE.HemisphereLight(0xffffff,0x5a6672,0.85));
+const key=new THREE.DirectionalLight(0xffffff,0.85); key.position.set(-3,5,3); scene.add(key);
+const rim=new THREE.DirectionalLight(0xbfd4e6,0.35); rim.position.set(4,-2,-4); scene.add(rim);
+
+/* model axes (X aft, Y starboard, Z up, mm) -> three (X, Y up, Z) in metres */
+const M2T=(x,y,z)=>new THREE.Vector3(y/1000,z/1000,x/1000);
+
+function b64(s){const b=atob(s),u=new Uint8Array(b.length);
+  for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;}
+
+function geom(c){
+  const raw=b64(c.v), q=new Uint16Array(raw.buffer,raw.byteOffset,raw.length/2);
+  const pos=new Float32Array(c.nv*3);
+  for(let i=0;i<c.nv;i++){
+    const mx=Q.origin[0]+q[i*3]*Q.scale;
+    const my=Q.origin[1]+q[i*3+1]*Q.scale;
+    const mz=Q.origin[2]+q[i*3+2]*Q.scale;
+    pos[i*3]=my/1000; pos[i*3+1]=mz/1000; pos[i*3+2]=mx/1000;
+  }
+  const ir=b64(c.i);
+  const idx=c.wide?new Uint32Array(ir.buffer,ir.byteOffset,ir.length/4)
+                  :new Uint16Array(ir.buffer,ir.byteOffset,ir.length/2);
+  const g=new THREE.BufferGeometry();
+  g.setAttribute("position",new THREE.BufferAttribute(pos,3));
+  g.setIndex(new THREE.BufferAttribute(idx.slice(),1));
+  g.computeVertexNormals();
+  return g;
+}
+
+const parts={};
+for(const c of MODEL.components){
+  const mat=new THREE.MeshStandardMaterial({
+    color:new THREE.Color(c.color), roughness:c.name==="solar_cells"?0.35:0.62,
+    metalness:c.name==="solar_cells"?0.25:0.05, side:THREE.DoubleSide,
+    flatShading:false});
+  parts[c.name]={geo:geom(c),mat:mat};
+}
+const mesh=n=>new THREE.Mesh(parts[n].geo,parts[n].mat);
+
+const root=new THREE.Group(); scene.add(root);
+["wing_stbd","wing_port","fuselage","dorsal_spine","ventral_fairing",
+ "sensor_turret","vtail_stbd","vtail_port","solar_cells"].forEach(n=>root.add(mesh(n)));
+
+/* rigs.  model rot_x -> three .z ; rot_y -> three .x ; rot_z -> three .y */
+function podRig(cfg,strutName,nacName,bladeName){
+  const arm=new THREE.Group(); arm.add(mesh(strutName));
+  arm.position.copy(M2T(cfg.pivot[0],cfg.pivot[1],cfg.pivot[2]));
+  root.add(arm);
+  const nac=new THREE.Group(); nac.add(mesh(nacName)); root.add(nac);
+  const hub=new THREE.Group(); root.add(hub);
+  const blades=[];
+  for(let i=0;i<cfg.blades;i++){
+    const az=new THREE.Group(), fold=new THREE.Group();
+    fold.add(mesh(bladeName)); az.add(fold); hub.add(az);
+    blades.push({az,fold,base:cfg.bladeAzimuth+360*i/cfg.blades});
+  }
+  return {arm,nac,hub,blades,cfg};
+}
+const motor=podRig(RIG.motor,"motor_pylon","motor_nacelle","prop_blade");
+const rat  =podRig(RIG.rat,"rat_arm","rat_nacelle","turbine_blade");
+
+const shortest=(a,b)=>((b-a+540)%360)-180;
+const mDelta=shortest(RIG.motor.stowed,RIG.motor.deployed);
+const rDelta=shortest(RIG.rat.stowed,RIG.rat.deployed);
+
+function poseP(rig,angle,fold,hubDX,axisTilt,spin){
+  const c=rig.cfg;
+  rig.arm.rotation.x=-angle*DEG;
+  const L=c.pylonLen!==undefined?c.pylonLen:c.armLen;
+  const hx=c.pivot[0]+L*Math.cos(angle*DEG)+(c.nacelleOffset||0);
+  const hz=c.pivot[2]+L*Math.sin(angle*DEG);
+  rig.nac.position.copy(M2T(hx,0,hz));
+  rig.hub.position.copy(M2T(hx+hubDX,0,hz));
+  rig.hub.rotation.x=axisTilt*DEG;
+  rig.blades.forEach(b=>{
+    b.az.rotation.z=(b.base+spin)*DEG;
+    b.fold.rotation.y=fold*DEG;
+  });
+}
+
+let t=0, spinOn=false, spin=0;
+function pose(){
+  const mA=RIG.motor.stowed+mDelta*t, rA=RIG.rat.stowed+rDelta*t;
+  poseP(motor,mA,RIG.motor.bladeFold*(1-t),RIG.motor.nacelleLen*0.5,
+        -RIG.motor.thrustAngle,spin);
+  poseP(rat,rA,RIG.rat.bladeFold*(1-t),-RIG.rat.nacelleLen*0.5-4,0,-spin*1.7);
+  const on=t>0.5;
+  document.getElementById("tb-cfg").textContent=
+    t<0.02?"STOWED":(t>0.98?"DEPLOYED":"IN TRANSIT "+Math.round(t*100)+"%");
+  document.getElementById("s-motor").textContent=on?"pylon deployed":"pylon stowed";
+  document.getElementById("s-rat").textContent=on?"turbine deployed":"turbine stowed";
+}
+
+/* fit + orbit */
+root.updateMatrixWorld(true);
+const box=new THREE.Box3().setFromObject(root), ctr=box.getCenter(new THREE.Vector3());
+root.position.sub(ctr);
+const radius=box.getSize(new THREE.Vector3()).length()/2;
+
+let az=-0.72, el=0.30, dist=radius*2.7;
+const views={iso:[-0.72,0.30],plan:[-Math.PI/2,1.4],side:[0,0.02],front:[-Math.PI/2,0.02]};
+function cam(){
+  const cd=Math.cos(el)*dist;
+  camera.position.set(Math.sin(az)*cd,Math.sin(el)*dist,Math.cos(az)*cd);
+  camera.lookAt(0,0,0);
+}
+let drag=null;
+cv.addEventListener("pointerdown",e=>{drag={x:e.clientX,y:e.clientY};cv.setPointerCapture(e.pointerId);});
+cv.addEventListener("pointermove",e=>{
+  if(!drag)return;
+  az-=(e.clientX-drag.x)*0.008;
+  el=Math.max(-1.45,Math.min(1.45,el+(e.clientY-drag.y)*0.006));
+  drag={x:e.clientX,y:e.clientY}; cam();
+});
+addEventListener("pointerup",()=>drag=null);
+cv.addEventListener("wheel",e=>{e.preventDefault();
+  dist=Math.max(radius*1.25,Math.min(radius*6,dist*(1+Math.sign(e.deltaY)*0.11)));cam();},
+  {passive:false});
+
+document.querySelectorAll("[data-view]").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll("[data-view]").forEach(o=>o.setAttribute("aria-pressed","false"));
+  b.setAttribute("aria-pressed","true");
+  [az,el]=views[b.dataset.view]; cam();
+}));
+
+const dep=document.getElementById("deploy");
+dep.addEventListener("input",()=>{t=+dep.value/100; pose();});
+
+const tSpin=document.getElementById("t-spin");
+tSpin.addEventListener("click",()=>{spinOn=!spinOn;
+  tSpin.setAttribute("aria-pressed",String(spinOn));});
+const tCells=document.getElementById("t-cells");
+let cellsHi=false;
+tCells.addEventListener("click",()=>{
+  cellsHi=!cellsHi; tCells.setAttribute("aria-pressed",String(cellsHi));
+  const m=parts.solar_cells.mat;
+  m.emissive=new THREE.Color(cellsHi?0x2f6fb0:0x000000);
+  m.emissiveIntensity=cellsHi?0.55:0;
+  parts.wing_stbd.mat.opacity=parts.wing_port.mat.opacity=cellsHi?0.55:1;
+  parts.wing_stbd.mat.transparent=parts.wing_port.mat.transparent=cellsHi;
+});
+
+let lw=0,lh=0;
+function resize(){
+  const w=cv.clientWidth,h=cv.clientHeight;
+  if(!w||!h||(w===lw&&h===lh))return;
+  lw=w; lh=h;
+  renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
+}
+addEventListener("resize",resize);
+
+function frame(){
+  requestAnimationFrame(frame);
+  if(spinOn&&!reduce){spin+=6.2; pose();}
+  renderer.setClearColor(clearCol,1);
+  resize();
+  renderer.render(scene,camera);
+}
+resize(); cam(); pose(); stage.classList.remove("loading"); frame();
+}
+})();
+</script>

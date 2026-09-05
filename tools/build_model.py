@@ -28,6 +28,11 @@ import config as C
 import mesh as M
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Tessellation. The STL wants density; the web viewer wants bytes.
+LOD = {"airfoil_n": 90, "wing_bays": 5, "fuse_pts": 32, "blister_pts": 24,
+       "nacelle_pts": 20, "blade_steps": 10, "vtail_steps": 8, "cell_nx": 3,
+       "cell_nc": 5, "strut_steps": 6, "turret_steps": 18}
 OUT = os.path.join(ROOT, "models")
 PARTS = os.path.join(OUT, "parts")
 
@@ -59,7 +64,8 @@ def wing_section():
         up, lo = af.load_selig_dat(os.path.join(ROOT, a["dat_file"]))
         return (af.closed_loop(up, lo, te_gap=a["te_gap"]), up,
                 dict(af.section_properties(up, lo), name=a["dat_file"]))
-    up, lo = af.naca4(a["camber"], a["camber_pos"], a["thickness"], n_per_side=90)
+    up, lo = af.naca4(a["camber"], a["camber_pos"], a["thickness"],
+                      n_per_side=LOD["airfoil_n"])
     up, r_final, iters = af.solar_flatten(up, a["solar_band"][0], a["solar_band"][1],
                                           C.WING["stations"][0][1], a["min_radius_mm"])
     props = af.section_properties(up, lo)
@@ -73,7 +79,8 @@ def wing_loop():
     return loop, props
 
 
-def symmetric_loop(thickness, n_per_side=48, te_gap=0.006):
+def symmetric_loop(thickness, n_per_side=None, te_gap=0.006):
+    n_per_side = n_per_side or max(16, LOD["airfoil_n"] // 2)
     up, lo = af.naca4(0.0, 0.3, thickness, n_per_side=n_per_side)
     return af.closed_loop(up, lo, te_gap=te_gap)
 
@@ -127,7 +134,7 @@ def densify(stns, per_bay=4):
 
 def build_wing():
     loop, _up, props = wing_section()
-    stns = densify(wing_geometry(), per_bay=5)
+    stns = densify(wing_geometry(), per_bay=LOD["wing_bays"])
     secs = [place_section(loop, s["chord"], s["le_x"], s["y"], s["z"], s["angle"])
             for s in stns]
     # closing tip: collapse the last section onto its own camber line
@@ -145,7 +152,7 @@ def build_fuselage():
     n = C.FUSELAGE["superellipse_n"]
     secs = []
     for (x, w, h, cz) in stns:
-        ring = M.superellipse(w, h, n=n, npts=32, cz=cz)
+        ring = M.superellipse(w, h, n=n, npts=LOD["fuse_pts"], cz=cz)
         secs.append([(x, p[1], p[2]) for p in ring])
     return M.loft(secs, cap_start=True, cap_end=True, name="fuselage")
 
@@ -171,7 +178,7 @@ def build_blister(table, top=True, name="blister"):
     for (x, hw, ht) in table:
         base = _fuselage_deck(x, top=top)
         ring = []
-        npts = 24
+        npts = LOD["blister_pts"]
         for i in range(npts):
             t = 2.0 * math.pi * i / npts
             y = hw * math.cos(t)
@@ -188,14 +195,15 @@ def build_turret():
     t = C.FUSELAGE["turret"]
     rx, ry, rz = t["r"] * 1.18, t["r"], t["r"]
     secs = []
-    steps = 18
+    steps = LOD["turret_steps"]
     for i in range(steps + 1):
         a = math.pi * (i / steps)
         x = -rx * math.cos(a)
         rr = math.sin(a)
-        secs.append([(t["x"] + x, ry * rr * math.cos(2 * math.pi * k / 20),
-                      t["z"] + rz * rr * math.sin(2 * math.pi * k / 20))
-                     for k in range(20)])
+        n = LOD["nacelle_pts"]
+        secs.append([(t["x"] + x, ry * rr * math.cos(2 * math.pi * k / n),
+                      t["z"] + rz * rr * math.sin(2 * math.pi * k / n))
+                     for k in range(n)])
     return M.loft(secs, cap_start=True, cap_end=True, name="sensor_turret")
 
 
@@ -203,7 +211,7 @@ def build_vtail():
     v = C.VTAIL
     loop = symmetric_loop(v["thickness"])
     secs = []
-    steps = 8
+    steps = LOD["vtail_steps"]
     for i in range(steps + 1):
         t = i / steps
         chord = v["root_chord"] + t * (v["tip_chord"] - v["root_chord"])
@@ -218,8 +226,8 @@ def build_vtail():
 
 def build_strut(pivot, length, chord, thickness, angle_deg, name):
     """A symmetric-section strut from `pivot`, at `angle_deg` in the XZ plane."""
-    loop = symmetric_loop(thickness, n_per_side=32)
-    steps = 6
+    loop = symmetric_loop(thickness, n_per_side=max(12, LOD["airfoil_n"] // 3))
+    steps = LOD["strut_steps"]
     # section in the XY plane, extruded along local +Z
     secs = []
     for i in range(steps + 1):
@@ -239,22 +247,24 @@ def build_nacelle(length, dia, spinner_len, spinner_dia, name):
             (length * 0.15, dia * 0.50), (length * 0.42, dia * 0.44),
             (length * 0.50, dia * 0.30)]
     for (x, r) in prof:
-        secs.append([(x, p[1], p[2]) for p in M.circle(r, npts=20)])
+        secs.append([(x, p[1], p[2]) for p in M.circle(r, npts=LOD["nacelle_pts"])])
     body = M.loft(secs, cap_start=True, cap_end=True, name=name)
     sp = []
     for i in range(9):
         t = i / 8.0
         r = (spinner_dia / 2.0) * math.sqrt(max(1e-6, 1.0 - t * t))
         sp.append([(length * 0.5 + t * spinner_len, p[1], p[2])
-                   for p in M.circle(r, npts=20)])
+                   for p in M.circle(r, npts=LOD["nacelle_pts"])])
     body.merge(M.loft(sp, cap_start=True, cap_end=False, name=name + "_spinner"),
                group_name=name + "_spinner")
     return body
 
 
-def build_blade(r0, r1, chord_at, pitch_at, thickness, camber, name, steps=10):
+def build_blade(r0, r1, chord_at, pitch_at, thickness, camber, name, steps=None):
     """Radial blade along +Y, chord in the XZ plane, twisted about +Y."""
-    up, lo = af.naca4(camber, 0.40, thickness, n_per_side=26)
+    steps = steps or LOD["blade_steps"]
+    up, lo = af.naca4(camber, 0.40, thickness,
+                      n_per_side=max(10, LOD["airfoil_n"] // 4))
     loop = af.closed_loop(up, lo, te_gap=0.01)
     secs = []
     for i in range(steps + 1):
@@ -473,7 +483,7 @@ def build_solar_cells(standoff=0.7):
 
     for si, strip in enumerate(layout["strips"]):
         for sign in (1.0, -1.0):
-            nx, nc = 3, 5
+            nx, nc = LOD["cell_nx"], LOD["cell_nc"]
             grid = []
             for i in range(nx + 1):
                 ty = strip["y0"] + (strip["y1"] - strip["y0"]) * i / nx
