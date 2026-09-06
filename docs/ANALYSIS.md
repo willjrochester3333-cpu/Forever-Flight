@@ -173,7 +173,7 @@ A turbine takes its electrical power out of the airstream. Extracting P watts el
 Rotor Ø 150 mm, 4 folding blades, C_p 0.36 at λ = 2.5. Power scales as V³, so the turbine is nearly useless at soaring speed and genuinely useful in a descent.
 
 
-### 4.1 Mode A — holding altitude in lift while extracting
+### 4.1 Holding altitude while extracting - and why not to
 
 | V (m/s) | P electrical (W) | sink without turbine (m/s) | lift needed to hold height (m/s) |
 |---|---|---|---|
@@ -185,10 +185,10 @@ Rotor Ø 150 mm, 4 folding blades, C_p 0.36 at λ = 2.5. Power scales as V³, so
 | 22 | 25.7 | 4.49 | **6.98** |
 
 
-Honest reading: to make 19 W you must sit in a 5.6 m/s thermal. Cores that strong exist over burn scars and dry ground in the afternoon, but they are not the common case. Mode A is opportunistic, not a power plan.
+Read alone this table looks discouraging: to take 19 W while holding height you need a 5.6 m/s core, which is rare. **The resolution is that the aircraft should not hold height.** It cycles - climbs slowly and efficiently with the turbine stowed, then descends with it deployed - and cycling beats holding by a wide margin, because the climb happens at minimum sink instead of at 20 m/s. Section 5.5 works the cycle properly; that is the number to use, not this one.
 
 
-### 4.2 Mode B — regenerative descent (the useful one)
+### 4.2 A single regenerative descent
 
 | V (m/s) | potential energy (Wh) | recovered (Wh) | recovery | sink (m/s) | descent time (s) |
 |---|---|---|---|---|---|
@@ -198,7 +198,13 @@ Honest reading: to make 19 W you must sit in a 5.6 m/s thermal. Cores that stron
 | 25 | 2.21 | **0.51** | 23 % | 10.26 | 49 |
 
 
-A 500 m regenerative descent banks **0.51 Wh** — about 4 minutes of hotel load. Modest, but it is energy you were going to throw away as drag anyway, and the turbine doubles as the airbrake, so the airframe needs no spoilers.
+One 500 m descent banks **0.51 Wh**, about 4 minutes of hotel load, and recovers 23 % of the potential energy almost regardless of descent speed - rotor power and airframe drag both scale as V-cubed, so the split between them barely moves.
+
+
+**Per descent is the wrong unit.** What matters is the rate over repeated climb-and-descend cycles, and that is section 5.5. The flat recovery fraction is also why the optimum descent speed is around 14 m/s rather than 25: going faster does not recover a larger share, it just burns the altitude band sooner and spends more of the surplus on airframe drag.
+
+
+Either way the turbine doubles as the airbrake, so the wing needs no spoilers and the approach can be flown steep and slow.
 
 
 ### 4.3 Mode C — emergency power
@@ -291,22 +297,69 @@ Pack: 3S1P 21700, **52.8 Wh** nameplate, 44.9 Wh at 85 % DoD, **38.9 Wh** usable
 
 ### 5.4 Mission simulation
 
-30 s time steps from a 09:00 launch. Thermal availability is modelled as a sine bell from 09:30 to 18:30 peaking at 75 % duty (45 % in N. Europe); the aircraft motors whenever it is not soaring. Endurance ends when the usable pack is empty.
+30 s steps from a 09:00 launch. There is no soaring "duty cycle" parameter. At each step the atmosphere offers `f x (w - s_circle)` of specific climb; if that beats what the airframe needs to stay up, the motor stays off and the **surplus is what the turbine takes**. If it does not, the motor makes up the shortfall and the turbine stays stowed. The soaring fraction below is an output, not an input.
 
 
-| Site | Case | Endurance | Solar harvested (Wh) | Peak array (W) | ≥ 8 h |
+| Site | Case | Endurance | Solar (Wh) | Turbine (Wh) | Motor (Wh) | Soaring | >= 8 h |
+|---|---|---|---|---|---|---|---|
+| S. Europe / California, mid-Aug | solar + soaring + turbine | **10.1 h** | 197 | 14.4 | 57 | 56 % | yes |
+| S. Europe / California, mid-Aug | solar + soaring, turbine off | **10.1 h** | 197 | 0.0 | 57 | 56 % | yes |
+| S. Europe / California, mid-Aug | solar only, no thermals | **9.1 h** | 196 | 0.0 | 145 | 0 % | yes |
+| S. Europe / California, mid-Aug | thermals only, array failed | **1.5 h** | 0 | 0.0 | 23 | 0 % | - |
+| S. Europe / California, mid-Aug | battery only | **1.5 h** | 0 | 0.0 | 23 | 0 % | - |
+| UK / N. Europe, late June | solar + soaring + turbine | **10.0 h** | 176 | 2.8 | 84 | 32 % | yes |
+| UK / N. Europe, late June | solar + soaring, turbine off | **10.0 h** | 176 | 0.0 | 84 | 32 % | yes |
+| UK / N. Europe, late June | solar only, no thermals | **8.6 h** | 170 | 0.0 | 137 | 0 % | yes |
+| UK / N. Europe, late June | thermals only, array failed | **1.5 h** | 0 | 0.0 | 23 | 0 % | - |
+| UK / N. Europe, late June | battery only | **1.5 h** | 0 | 0.0 | 23 | 0 % | - |
+
+
+**The 8-hour requirement is met by solar plus soaring, and is not met on batteries alone.**
+
+
+### 5.5 What the turbine is actually worth
+
+The turbine's operating case is the soaring cycle, not level flight. The aircraft climbs on atmospheric energy and descends on the turbine, so the source is the air and the output is **genuinely net positive**. The steady-flight objection only ever applied to steady flight, where there is no free energy coming in.
+
+
+Sustainable electrical harvest, by the kind of day (W):
+
+
+| Thermal strength (m/s) | in lift 25 % | in lift 30 % | in lift 35 % | in lift 40 % | in lift 45 % |
 |---|---|---|---|---|---|
-| S. Europe / California, mid-Aug | solar + soaring | **10.0 h** | 197 | 29.6 | ✅ |
-| S. Europe / California, mid-Aug | solar only, no thermals | **9.0 h** | 196 | 29.6 | ✅ |
-| S. Europe / California, mid-Aug | thermals only, array failed | **1.6 h** | 0 | 0.0 | — |
-| S. Europe / California, mid-Aug | battery only | **1.4 h** | 0 | 0.0 | — |
-| UK / N. Europe, late June | solar + soaring | **10.0 h** | 176 | 24.5 | ✅ |
-| UK / N. Europe, late June | solar only, no thermals | **8.2 h** | 166 | 24.5 | ✅ |
-| UK / N. Europe, late June | thermals only, array failed | **1.5 h** | 0 | 0.0 | — |
-| UK / N. Europe, late June | battery only | **1.4 h** | 0 | 0.0 | — |
+| 1.5 | - | - | - | - | **0.5** |
+| 2.0 | - | **0.0** | **1.0** | **1.4**\* | **1.8**\* |
+| 2.5 | **0.4** | **1.3** | **1.8** | **2.3** | **2.7** |
+| 3.0 | **1.4**\* | **2.1** | **2.5**\* | **3.1** | **3.6** |
+| 3.5 | **2.1** | **2.7** | **3.2**\* | **3.9** | **4.5**\* |
+| 4.0 | **2.6**\* | **3.3**\* | **4.0** | **4.6**\* | **5.2** |
 
 
-**The 8-hour requirement is met by solar plus soaring, and is not met on batteries alone — battery-only endurance is about 1.5 h.** Note that solar alone very nearly does it; thermal soaring is the margin that absorbs a bad day, not the primary mechanism.
+`-` = cannot soar unaided, the motor is running. `*` = rotor-limited: the atmosphere is offering more surplus than a 150 mm rotor can absorb at the optimum descent speed.
+
+
+On a good day that is **3.6 W continuous** against a 7.9 W hotel load - about 46 % of the avionics and payload budget, taken from the air. Over a flight it comes to **14 Wh**, a quarter of the pack's nameplate capacity.
+
+
+The optimum descent speed is **14 m/s**, not the 20-25 m/s a naive reading of the turbine's power curve suggests. Rotor power goes as V-cubed, but so does airframe drag, and past about 15 m/s the airframe eats the surplus faster than the rotor can take it.
+
+
+#### The catch: on a good day there is nowhere to put it
+
+| Array output | Condition | Turbine off | Turbine on | Gain | Harvest spilled |
+|---|---|---|---|---|---|
+| 100 % | clear sky, clean array | 10.07 h | 10.07 h | **+0.00 h** | 100 % |
+| 75 % | haze or a soiled array | 9.98 h | 9.98 h | **+0.00 h** | 97 % |
+| 55 % | thin overcast | 9.88 h | 9.90 h | **+0.02 h** | 74 % |
+| 40 % | one of three strings failed | 9.10 h | 9.71 h | **+0.61 h** | 0 % |
+| 30 % | heavy overcast | 7.98 h | 8.86 h | **+0.87 h** | 0 % |
+| 20 % | array badly degraded | 2.56 h | 7.18 h | **+4.62 h** | 0 % |
+
+
+**On a clear day every watt-hour the turbine makes is thrown away, because the array has already filled the pack.** The energy is real; the tank is full. The turbine pays exactly when the array cannot - overcast, soiling, a failed string, low winter sun - and in that band it is worth hours, not minutes.
+
+
+That is a better reason to carry it than a daily contribution would be: it is the argument for any redundant system. It also means the deploy rule in section 6.1 is already right - **only harvest when the pack has room**. On a full pack the surplus should go into altitude or airspeed, banked as potential energy or spent on survey coverage, not into a turbine with nowhere to send it.
 
 
 ## 6. Stability and control

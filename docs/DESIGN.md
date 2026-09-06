@@ -8,35 +8,71 @@ Every number quoted here is computed by `tools/analysis.py` from
 
 ---
 
-## 0. Read this first — what the dynamo can and cannot do
+## 0. Read this first — what the dynamo actually does
 
 The brief asks for a turbine-driven dynamo that charges the aircraft to
-increase flight time. **A turbine cannot increase endurance in steady flight,
-and no amount of engineering will change that.** It takes its power out of the
-airstream, and that extraction appears as drag. Making 19 W electrically costs
-30 W of shaft power, which at 20 m/s is 1.5 N of extra drag — about ten percent
-of the aircraft's weight, dragging it down at 3.6 m/s instead of 0.52.
+increase flight time. **It does, and the energy is genuinely free. The
+limitation is not generation — it is that on a good day there is nowhere to
+put it.**
 
-The energy accounting is unforgiving: you always put in more than you get back.
+**Where the energy comes from.** In steady level flight a turbine cannot pay
+for itself: extracting P watts costs P/(η_gen·η_rect) watts of shaft power,
+and that shaft power is drag. But this aircraft does not fly steady level
+flight. It soars. It climbs on atmospheric energy and descends on the turbine,
+and across that cycle the source is the air, not the pack. **Over a soaring
+cycle the output is unambiguously net positive.**
 
-So the turbine is designed here as a **regenerative energy-recovery device**
-with a hard control law, not as a charger. It has three honest jobs:
+The sustainable harvest is what the atmosphere offers *beyond* what the
+airframe needs to stay up:
+
+```
+    c_net = f·(w − s_circle) − (1 − f)·s_glide(v)      net specific climb
+    P_surplus = W · c_net                              shaft watts the turbine can take
+```
+
+On a good day (3.2 m/s thermals, in usable lift 42 % of the time) that comes
+to **3.6 W continuous — 46 % of the
+7.9 W hotel load — and about 14 Wh over a
+flight, a quarter of the pack's nameplate capacity.** In weaker British
+conditions it is 1.3 W. The optimum descent speed is
+14 m/s, not the 20–25 m/s the turbine's raw power curve suggests:
+rotor power goes as V³, but so does airframe drag, and past about 15 m/s the
+airframe eats the surplus faster than the rotor can take it.
+
+**The catch is storage, not generation.**
+
+| Array output | Condition | Turbine off | Turbine on | Gain | Harvest spilled |
+|---|---|---|---|---|---|
+| 100 % | clear sky, clean array | 10.07 h | 10.07 h | **+0.00 h** | 100 % |
+| 55 % | thin overcast | 9.88 h | 9.90 h | **+0.02 h** | 74 % |
+| 40 % | one of three strings failed | 9.10 h | 9.71 h | **+0.61 h** | 0 % |
+| 30 % | heavy overcast | 7.98 h | 8.86 h | **+0.87 h** | 0 % |
+| 20 % | array badly degraded | 2.56 h | 7.18 h | **+4.62 h** | 0 % |
+
+On a clear day the array has the pack full by mid-morning, so **every watt-hour
+the turbine makes is spilled**. The energy is real; the tank is full. The
+turbine pays exactly when the array cannot — overcast, soiling, a failed
+string, low winter sun — and in that band it is worth **hours**.
+
+That is a better reason to carry it than a daily contribution would be. It is
+the argument for any redundant system: it costs nothing on the days it is not
+needed, because it is stowed. Three jobs:
 
 | Mode | When | Value |
 |---|---|---|
-| **A — surplus lift harvesting** | At the altitude ceiling with lift still available | 4–19 W, but needs a 1.3–5.6 m/s thermal. Opportunistic. |
-| **B — regenerative descent** | Any commanded descent | 0.48 Wh per 500 m, and it replaces the spoilers the airframe would otherwise need |
-| **C — emergency power** | Pack or array failure | 8.1 W at 15 m/s, against a 7.9 W hotel load — keeps the autopilot and the radio alive all the way down |
+| **A — surplus harvesting** | Soaring with lift to spare | 1.3–3.6 W sustained, spilled when the pack is full |
+| **B — regenerative descent** | Any commanded descent | Replaces the spoilers the wing would otherwise need |
+| **C — emergency power** | Pack or array failure | 8.1 W at 15 m/s against a 7.9 W hotel load — keeps the autopilot and radio alive all the way down |
 
-Mode C is the one that genuinely earns the turbine's 126 g. It is the same
-argument that puts a ram air turbine in an airliner.
+The deploy rule follows directly, and it is already in §6.1: **only harvest
+when the pack has room.** On a full pack the surplus should go into altitude
+or airspeed — banked as potential energy, or spent on survey coverage — not
+into a turbine with nowhere to send it.
 
-**The eight hours come from somewhere else: a solar array and autonomous
-thermal soaring.** On batteries alone this aircraft flies for 1.4 hours. With
-the array and thermals it flies for 10.0 hours in August at 38° N, and
-10.0 hours in late June at 51.5° N — the target is met with 25 % margin.
-
-Everything below is built on that.
+**The eight hours still come mostly from somewhere else.** Solar plus
+autonomous thermal soaring gives 10.1 hours. On batteries
+alone this aircraft flies for 1.5 hours. The turbine is the margin that makes
+a bad day survivable, not the primary mechanism.
 
 ---
 
@@ -364,15 +400,26 @@ release on a discrete output, independent of the scripting engine.
 
 ### 6.2 What it actually returns
 
-Over a full 8-hour sortie with, say, twelve 500 m regenerative descents, mode B
-banks about 5.8 Wh — roughly 4 % of the mission energy. It is worth having
-because it is energy you were going to throw away as drag anyway, and because
-the turbine doubles as the airbrake, so the wing needs no spoilers and the
-approach can be flown steep and slow.
+| Day | Thermal | In lift | Sustainable harvest |
+|---|---|---|---|
+| Weak, N. Europe | 2.2 m/s | 34 % | 1.3 W |
+| Good, S. Europe | 3.2 m/s | 42 % | 3.6 W |
+| Strong | 4.0 m/s | 45 % | 5.2 W |
 
-Do not expect more from it than that.
+Full grid in [ANALYSIS.md](ANALYSIS.md) §5.5. Two things fall out of it that
+are not obvious:
 
----
+**On good days the rotor is the limit, not the atmosphere.** A 150 mm rotor
+cannot absorb everything a strong day offers at the optimum descent speed.
+Going to 175 mm buys about 0.7 W more harvest and 3 W more in Mode C, at the
+cost of 18 mm more mast stroke (146 mm instead of 128) and the mass that comes
+with it. The baseline stays at 150 mm because the extra is only available on
+days when the pack is full anyway — but if the aircraft is ever re-scoped for
+overcast operation, size the rotor up.
+
+**Descend slowly.** The optimum is 14 m/s. Diving at 25 m/s
+extracts more instantaneous power but wastes far more of the surplus in
+airframe drag, and it burns the altitude band faster.
 
 ## 7. Avionics and autonomy
 

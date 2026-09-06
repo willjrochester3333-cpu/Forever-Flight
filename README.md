@@ -16,23 +16,30 @@ retractable motor pylon and a retractable energy-recovery turbine.
 | Survey coverage | 10.1 km²/h → 81 km² per sortie |
 | Detection floor | ~0.5–1 m² of active flame, clutter-limited |
 
-## The honest bit up front
+## What the dynamo actually does
 
-The brief asked for a dynamo that charges the aircraft to extend flight time.
-**It cannot.** A turbine takes its power out of the airstream, and that
-extraction is drag — making 19 W costs 30 W of shaft power and triples the
-sink rate. You always put in more than you get back.
+It works. In steady level flight a turbine cannot pay for itself — extracting
+power costs more power, and that shows up as drag. But this aircraft doesn't
+fly steady level flight. **It soars: it climbs on atmospheric energy and
+descends on the turbine, so the source is the air, not the pack. Over that
+cycle the output is unambiguously net positive.**
 
-So the turbine here is a **regenerative energy-recovery device**, not a
-charger, with a control law that only lets it run when the energy is genuinely
-surplus: harvesting lift at the altitude ceiling, recovering commanded
-descents (0.48 Wh per 500 m, and it replaces the spoilers), and — the mode
-that actually earns its 126 g — emergency power, making 8.1 W against a 7.9 W
-hotel load with a dead pack.
+The turbine takes whatever the atmosphere offers beyond what the airframe
+needs to stay up. On a good day that's **3.6 W continuous —
+46 % of the 7.9 W hotel load — and about
+14 Wh over a flight**, a quarter of the pack.
 
-**The eight hours come from a solar array and autonomous thermal soaring.**
-That part closes with about 25 % margin. Full working in
-[docs/ANALYSIS.md](docs/ANALYSIS.md) §4.
+**The catch is storage, not generation.** On a clear day the array has the
+pack full by mid-morning, so all of it is spilled. The turbine pays exactly
+when the array can't: with one solar string failed it's worth +0.6 h, in heavy
+overcast +0.9 h, and with a badly degraded array +4.6 h. That's the argument
+for any redundant system — it costs nothing on the days it isn't needed,
+because it's stowed.
+
+The deploy rule follows: **only harvest when the pack has room.** On a full
+pack the surplus should go into altitude or survey coverage instead.
+
+Full working in [docs/ANALYSIS.md](docs/ANALYSIS.md) §5.5.
 
 ## Documents
 

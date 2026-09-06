@@ -216,49 +216,96 @@ def array_power(irr_horiz):
 # mission simulation
 # ==========================================================================
 
-def thermal_fraction(hour, peak, t0=9.5, t1=18.5):
+def thermal_day(hour, peak):
+    """Bell curve for thermal strength and availability through the day."""
+    d = C.MISSION["thermal_day"]
+    t0, t1 = d["t0"], d["t1"]
     if hour <= t0 or hour >= t1:
         return 0.0
-    return peak * math.sin(math.pi * (hour - t0) / (t1 - t0)) ** 0.7
+    return peak * math.sin(math.pi * (hour - t0) / (t1 - t0)) ** d["shape"]
 
 
-def simulate(site, launch_h=9.0, peak_soar=0.75, use_solar=True,
-             allow_soar=True, dt_s=30.0, max_h=14.0):
-    name, lat, doy, clearness = site
+_HARVEST_CACHE = {}
+
+
+def _harvest(W, w, f):
+    k = (round(W, 2), round(w, 2), round(f, 3))
+    if k not in _HARVEST_CACHE:
+        _HARVEST_CACHE[k] = soaring_harvest(W, w, f)
+    return _HARVEST_CACHE[k]
+
+
+def simulate(site, launch_h=9.0, use_solar=True, allow_soar=True,
+             use_turbine=True, dt_s=30.0, max_h=14.0, solar_scale=1.0):
+    """Day simulation on a physical soaring model.
+
+    At each step the atmosphere offers f*(w - s_circle) of specific climb. If
+    that exceeds what the airframe needs to stay up, the motor stays off and
+    the SURPLUS is what the turbine can take. If it does not, the motor makes
+    up the shortfall and the turbine stays stowed. There is no soaring "duty
+    cycle" parameter -- the behaviour falls out of the thermal day.
+    """
+    name, lat, doy, clearness, w_peak, f_peak = site
     m = mass_rollup()
     W = m["mtow_g"] / 1000.0 * G
     bat = C.BATTERY
     cap_wh = bat["cells_series"] * bat["cells_parallel"] * bat["cell_wh"]
     usable = cap_wh * bat["usable_dod"] - bat["reserve_wh"]
     hotel = sum(h[1] for h in C.HOTEL)
+    e_chain = C.EFF["prop"] * C.EFF["motor"] * C.EFF["esc"]
 
-    kp = key_points(W, motor=False)
-    v_cruise_soar = kp["best_glide"]["V"]
-    p_cruise, _ = elec_power_for(max(v_cruise_soar, kp["min_sink"]["V"]), W, motor=True)
+    kp = key_points(W)
+    s_bg = kp["best_glide"]["sink"]
+    p_hold = W * s_bg / e_chain          # electrical cost of holding altitude
 
-    e = usable                                   # start full
-    t, trace, endurance = launch_h, [], 0.0
-    climbed = False
+    e, t, trace = usable, launch_h, []
+    endurance, climbed = 0.0, False
+    harvest_wh = motor_wh = 0.0
+    soar_s = 0.0
     while t < launch_h + max_h:
         irr, el = clear_sky(lat, doy, t, clearness) if use_solar else (0.0, 0.0)
-        p_in, _ = array_power(irr) if use_solar else (0.0, 0.0)
-        soar = thermal_fraction(t, peak_soar) if allow_soar else 0.0
-        p_out = hotel + (1.0 - soar) * p_cruise
-        if not climbed:                          # initial climb to the soaring band
-            e -= (C.MISSION["cruise_alt_agl_m"] / 2.5) * (95.0 - p_in) / 3600.0
+        p_solar, _ = array_power(irr) if use_solar else (0.0, 0.0)
+        p_solar *= solar_scale
+
+        w = thermal_day(t, w_peak) if allow_soar else 0.0
+        f = thermal_day(t, f_peak) if allow_soar else 0.0
+        h = _harvest(W, w, f) if (allow_soar and w > 0 and f > 0) else None
+
+        if h and h["soarable"]:
+            p_motor = 0.0
+            p_harvest = h["harvest_w"] if use_turbine else 0.0
+            soar_s += dt_s
+        else:
+            # motor makes up whatever the air does not provide
+            deficit = s_bg - (f * (w - circling_sink(W)) if h else 0.0)
+            p_motor = max(0.0, W * deficit / e_chain)
+            p_harvest = 0.0
+
+        if not climbed:
+            e -= (C.MISSION["cruise_alt_agl_m"] / 2.5) * (95.0 - p_solar) / 3600.0
             climbed = True
-        e += (p_in - p_out) * dt_s / 3600.0
-        e = min(e, usable)
-        trace.append({"t": t, "el": el, "irr": irr, "p_in": p_in,
-                      "p_out": p_out, "soar": soar, "e": e})
+
+        p_in, p_out = p_solar + p_harvest, hotel + p_motor
+        e = min(e + (p_in - p_out) * dt_s / 3600.0, usable)
+        harvest_wh += p_harvest * dt_s / 3600.0
+        motor_wh += p_motor * dt_s / 3600.0
+        trace.append({"t": t, "el": el, "p_solar": p_solar, "p_in": p_in,
+                      "p_out": p_out, "p_harvest": p_harvest,
+                      "p_motor": p_motor, "w": w, "f": f, "e": e,
+                      "soaring": bool(h and h["soarable"])})
         if e <= 0.0:
             break
         t += dt_s / 3600.0
         endurance = t - launch_h
+
     return {"site": name, "endurance_h": endurance, "trace": trace,
-            "p_cruise": p_cruise, "hotel": hotel, "usable_wh": usable,
-            "cap_wh": cap_wh, "solar_wh": sum(r["p_in"] * dt_s / 3600 for r in trace),
-            "peak_solar_w": max((r["p_in"] for r in trace), default=0.0),
+            "p_cruise": elec_power_for(kp["best_glide"]["V"], W, motor=True)[0],
+            "hotel": hotel, "usable_wh": usable, "cap_wh": cap_wh,
+            "solar_wh": sum(r["p_solar"] * dt_s / 3600 for r in trace),
+            "harvest_wh": harvest_wh, "motor_wh": motor_wh,
+            "soar_frac": soar_s / max(1e-9, endurance * 3600),
+            "peak_solar_w": max((r["p_solar"] for r in trace), default=0.0),
+            "peak_harvest_w": max((r["p_harvest"] for r in trace), default=0.0),
             "reached_target": endurance >= C.MISSION["target_endurance_h"]}
 
 
@@ -633,17 +680,21 @@ def report():
       f"V³, so the turbine is nearly useless at soaring speed and genuinely useful "
       f"in a descent.\n")
 
-    A("\n### 4.1 Mode A — holding altitude in lift while extracting\n")
+    A("\n### 4.1 Holding altitude while extracting - and why not to\n")
     A(_t([[f"{r['V']:.0f}", f"{r['p_elec']:.1f}", f"{r['glide_sink_ms']:.2f}",
            f"**{r['thermal_needed_ms']:.2f}**"]
           for r in (rat_hold_altitude(W, v) for v in (12, 14, 16, 18, 20, 22))],
          ["V (m/s)", "P electrical (W)", "sink without turbine (m/s)",
           "lift needed to hold height (m/s)"]))
-    A("\nHonest reading: to make 19 W you must sit in a 5.6 m/s thermal. Cores that "
-      "strong exist over burn scars and dry ground in the afternoon, but they are "
-      "not the common case. Mode A is opportunistic, not a power plan.\n")
+    A("\nRead alone this table looks discouraging: to take 19 W while holding "
+      "height you need a 5.6 m/s core, which is rare. **The resolution is that "
+      "the aircraft should not hold height.** It cycles - climbs slowly and "
+      "efficiently with the turbine stowed, then descends with it deployed - "
+      "and cycling beats holding by a wide margin, because the climb happens "
+      "at minimum sink instead of at 20 m/s. Section 5.5 works the cycle "
+      "properly; that is the number to use, not this one.\n")
 
-    A("\n### 4.2 Mode B — regenerative descent (the useful one)\n")
+    A("\n### 4.2 A single regenerative descent\n")
     A(_t([[f"{r['V']:.0f}", f"{r['pe_wh']:.2f}", f"**{r['recovered_wh']:.2f}**",
            f"{r['recovery_frac']*100:.0f} %", f"{r['sink_ms']:.2f}", f"{r['descent_time_s']:.0f}"]
           for r in (regen_descent(W, v, 500.0) for v in (12, 15, 20, 25))],
@@ -651,10 +702,19 @@ def report():
           "sink (m/s)", "descent time (s)"]))
     hotel = sum(h[1] for h in C.HOTEL)
     rd = regen_descent(W, 20.0, 500.0)
-    A(f"\nA 500 m regenerative descent banks **{rd['recovered_wh']:.2f} Wh** — about "
-      f"{rd['recovered_wh']/hotel*60:.0f} minutes of hotel load. Modest, but it is "
-      f"energy you were going to throw away as drag anyway, and the turbine doubles "
-      f"as the airbrake, so the airframe needs no spoilers.\n")
+    A(f"\nOne 500 m descent banks **{rd['recovered_wh']:.2f} Wh**, about "
+      f"{rd['recovered_wh']/hotel*60:.0f} minutes of hotel load, and recovers "
+      f"{rd['recovery_frac']*100:.0f} % of the potential energy almost "
+      f"regardless of descent speed - rotor power and airframe drag both scale "
+      f"as V-cubed, so the split between them barely moves.\n")
+    A("\n**Per descent is the wrong unit.** What matters is the rate over "
+      "repeated climb-and-descend cycles, and that is section 5.5. The flat "
+      "recovery fraction is also why the optimum descent speed is around 14 "
+      "m/s rather than 25: going faster does not recover a larger share, it "
+      "just burns the altitude band sooner and spends more of the surplus on "
+      "airframe drag.\n")
+    A("\nEither way the turbine doubles as the airbrake, so the wing needs no "
+      "spoilers and the approach can be flown steep and slow.\n")
 
     A("\n### 4.3 Mode C — emergency power\n")
     r15 = rat_power(15.0)
@@ -681,7 +741,7 @@ def report():
          ["", "", "note"]))
 
     A("\n### 5.2 Clear-sky array output\n")
-    for (nm, lat, doy, cl) in C.MISSION["sites"]:
+    for (nm, lat, doy, cl, _w, _f) in C.MISSION["sites"]:
         A(f"\n**{nm}** — latitude {lat}°, day {doy}, clearness {cl}\n\n")
         rows = []
         for h in range(6, 21):
@@ -706,27 +766,93 @@ def report():
 
     # ---- mission ----
     A("\n### 5.4 Mission simulation\n")
-    A("30 s time steps from a 09:00 launch. Thermal availability is modelled as a "
-      "sine bell from 09:30 to 18:30 peaking at 75 % duty (45 % in N. Europe); "
-      "the aircraft motors whenever it is not soaring. Endurance ends when the "
-      "usable pack is empty.\n\n")
+    A("30 s steps from a 09:00 launch. There is no soaring \"duty cycle\" "
+      "parameter. At each step the atmosphere offers `f x (w - s_circle)` of "
+      "specific climb; if that beats what the airframe needs to stay up, the "
+      "motor stays off and the **surplus is what the turbine takes**. If it "
+      "does not, the motor makes up the shortfall and the turbine stays "
+      "stowed. The soaring fraction below is an output, not an input.\n\n")
     rows = []
     for site in C.MISSION["sites"]:
-        peak = 0.75 if site[1] < 45 else 0.55
-        for label, kw in [("solar + soaring", dict(peak_soar=peak)),
-                          ("solar only, no thermals", dict(peak_soar=peak, allow_soar=False)),
-                          ("thermals only, array failed", dict(peak_soar=peak, use_solar=False)),
-                          ("battery only", dict(peak_soar=peak, use_solar=False, allow_soar=False))]:
+        for label, kw in [("solar + soaring + turbine", {}),
+                          ("solar + soaring, turbine off", dict(use_turbine=False)),
+                          ("solar only, no thermals", dict(allow_soar=False)),
+                          ("thermals only, array failed", dict(use_solar=False)),
+                          ("battery only", dict(use_solar=False, allow_soar=False))]:
             r = simulate(site, launch_h=9.0, **kw)
             rows.append([site[0], label, f"**{r['endurance_h']:.1f} h**",
-                         f"{r['solar_wh']:.0f}", f"{r['peak_solar_w']:.1f}",
-                         "✅" if r["reached_target"] else "—"])
-    A(_t(rows, ["Site", "Case", "Endurance", "Solar harvested (Wh)",
-                "Peak array (W)", "≥ 8 h"]))
-    A(f"\n**The {C.MISSION['target_endurance_h']:.0f}-hour requirement is met by solar "
-      f"plus soaring, and is not met on batteries alone — battery-only endurance is "
-      f"about 1.5 h.** Note that solar alone very nearly does it; thermal soaring is "
-      f"the margin that absorbs a bad day, not the primary mechanism.\n")
+                         f"{r['solar_wh']:.0f}", f"{r['harvest_wh']:.1f}",
+                         f"{r['motor_wh']:.0f}", f"{r['soar_frac'] * 100:.0f} %",
+                         "yes" if r["reached_target"] else "-"])
+    A(_t(rows, ["Site", "Case", "Endurance", "Solar (Wh)", "Turbine (Wh)",
+                "Motor (Wh)", "Soaring", ">= 8 h"]))
+    A(f"\n**The {C.MISSION['target_endurance_h']:.0f}-hour requirement is met "
+      f"by solar plus soaring, and is not met on batteries alone.**\n")
+
+    # ---- soaring harvest ----
+    A("\n### 5.5 What the turbine is actually worth\n")
+    A("The turbine's operating case is the soaring cycle, not level flight. "
+      "The aircraft climbs on atmospheric energy and descends on the turbine, "
+      "so the source is the air and the output is **genuinely net positive**. "
+      "The steady-flight objection only ever applied to steady flight, where "
+      "there is no free energy coming in.\n\n")
+    A("Sustainable electrical harvest, by the kind of day (W):\n\n")
+    grid = harvest_grid(W)
+    fr = [c["f"] for c in grid[0]["cells"]]
+    A(_t([[f"{row['w']:.1f}"] +
+          ["-" if not c["soarable"] else
+           (f"**{c['h']:.1f}**" + ("\\*" if c["rotor_limited"] else ""))
+           for c in row["cells"]] for row in grid],
+         ["Thermal strength (m/s)"] + [f"in lift {f * 100:.0f} %" for f in fr]))
+    A("\n`-` = cannot soar unaided, the motor is running. `*` = rotor-limited: "
+      "the atmosphere is offering more surplus than a "
+      f"{C.RAT['rotor_dia']:.0f} mm rotor can absorb at the optimum descent "
+      "speed.\n")
+    hv = soaring_harvest(W, 3.2, 0.42)
+    simg = simulate(C.MISSION["sites"][0])
+    A(f"\nOn a good day that is **{hv['harvest_w']:.1f} W continuous** against "
+      f"a {hotel:.1f} W hotel load - about "
+      f"{hv['harvest_w'] / hotel * 100:.0f} % of the avionics and payload "
+      f"budget, taken from the air. Over a flight it comes to "
+      f"**{simg['harvest_wh']:.0f} Wh**, a quarter of the pack's nameplate "
+      f"capacity.\n")
+    A(f"\nThe optimum descent speed is **{hv['v']:.0f} m/s**, not the 20-25 m/s "
+      f"a naive reading of the turbine's power curve suggests. Rotor power "
+      f"goes as V-cubed, but so does airframe drag, and past about 15 m/s the "
+      f"airframe eats the surplus faster than the rotor can take it.\n")
+
+    A("\n#### The catch: on a good day there is nowhere to put it\n")
+    site = C.MISSION["sites"][0]
+    rows = []
+    for sc, lab in [(1.00, "clear sky, clean array"),
+                    (0.75, "haze or a soiled array"),
+                    (0.55, "thin overcast"),
+                    (0.40, "one of three strings failed"),
+                    (0.30, "heavy overcast"),
+                    (0.20, "array badly degraded")]:
+        a = simulate(site, use_turbine=False, solar_scale=sc)
+        b = simulate(site, use_turbine=True, solar_scale=sc)
+        dt = 30 / 3600
+        spill = sum(x["p_harvest"] * dt for x in b["trace"]
+                    if x["e"] >= b["usable_wh"] - 1e-6)
+        rows.append([f"{sc * 100:.0f} %", lab, f"{a['endurance_h']:.2f} h",
+                     f"{b['endurance_h']:.2f} h",
+                     f"**{b['endurance_h'] - a['endurance_h']:+.2f} h**",
+                     f"{100 * spill / max(b['harvest_wh'], 1e-9):.0f} %"])
+    A(_t(rows, ["Array output", "Condition", "Turbine off", "Turbine on",
+                "Gain", "Harvest spilled"]))
+    A("\n**On a clear day every watt-hour the turbine makes is thrown away, "
+      "because the array has already filled the pack.** The energy is real; "
+      "the tank is full. The turbine pays exactly when the array cannot - "
+      "overcast, soiling, a failed string, low winter sun - and in that band "
+      "it is worth hours, not minutes.\n")
+    A("\nThat is a better reason to carry it than a daily contribution would "
+      "be: it is the argument for any redundant system. It also means the "
+      "deploy rule in section 6.1 is already right - **only harvest when the "
+      "pack has room**. On a full pack the surplus should go into altitude or "
+      "airspeed, banked as potential energy or spent on survey coverage, not "
+      "into a turbine with nowhere to send it.\n")
+
 
     # ---- stability ----
     A("\n## 6. Stability and control\n")
@@ -839,6 +965,108 @@ def main():
         fh.write(report())
     print(f"wrote {os.path.relpath(path, ROOT)} "
           f"({os.path.getsize(path)/1024:.1f} kB)")
+
+
+
+# ==========================================================================
+# soaring-cycle harvest
+# ==========================================================================
+# The turbine's real operating case is not steady level flight. The aircraft
+# climbs on atmospheric energy and descends on the turbine, so the source is
+# the air, not the pack. What the turbine can take is the SURPLUS climb the
+# airframe does not need to stay up.
+#
+#   c_net(v) = f*(w - s_circle) - (1-f)*s_glide(v)      [m/s, net specific climb]
+#   P_surplus = W * c_net                                [W of shaft power]
+#   harvest   = min(P_surplus, duty * rotor_shaft(v)) * eta_gen * eta_rect
+#
+# Both terms move with the descent speed v, so it is swept for the optimum.
+
+BANK_FACTOR = 1.40          # circling at ~40 deg costs this much extra sink
+
+
+def circling_sink(W):
+    """Sink rate while thermalling, turbine stowed."""
+    return practical_min_sink(W)["sink"] * BANK_FACTOR
+
+
+def glide_sink_at(V, W, rat=False):
+    g = geom()
+    CL = 2.0 * W / (RHO * g["S"] * V * V)
+    if CL > C.DRAG["cl_max"]:
+        return None
+    CD = polar(CL, motor=False, rat=rat)
+    return 0.5 * RHO * g["S"] * V ** 3 * CD / W
+
+
+def soaring_harvest(W, w_thermal, f_lift, v_lo=9.0, v_hi=26.0, step=0.25):
+    """Best sustainable electrical harvest for a given day, and how.
+
+    Returns the optimum descent speed, the surplus it converts, and whether
+    the aircraft can soar at all without the motor.
+    """
+    s_circle = circling_sink(W)
+    climb_term = f_lift * (w_thermal - s_circle)
+
+    # can it stay up at all, turbine stowed, gliding at best glide?
+    s_bg = key_points(W)["best_glide"]["sink"]
+    c_stowed = climb_term - (1.0 - f_lift) * s_bg
+    best = {"harvest_w": 0.0, "v": None, "surplus_w": 0.0,
+            "c_stowed": c_stowed, "soarable": c_stowed > 0.0,
+            "s_circle": s_circle, "rotor_limited": False,
+            "atm_power_w": W * f_lift * w_thermal}
+
+    if c_stowed <= 0.0:
+        return best
+
+    duty = 1.0 - f_lift
+    V = v_lo
+    while V <= v_hi:
+        s = glide_sink_at(V, W, rat=True)
+        if s is not None:
+            c_net = climb_term - duty * s
+            surplus = W * c_net
+            cap = duty * rat_power(V)["p_shaft"]
+            shaft = min(max(0.0, surplus), cap)
+            h = shaft * C.EFF["generator"] * C.EFF["rectifier_charger"]
+            if h > best["harvest_w"]:
+                best.update({"harvest_w": h, "v": V, "surplus_w": surplus,
+                             "shaft_w": shaft, "cap_w": cap,
+                             "rotor_limited": cap < surplus,
+                             "descent_sink": s, "duty": duty})
+        V += step
+    return best
+
+
+def harvest_grid(W, strengths=(1.5, 2.0, 2.5, 3.0, 3.5, 4.0),
+                 fractions=(0.25, 0.30, 0.35, 0.40, 0.45)):
+    out = []
+    for w in strengths:
+        row = {"w": w, "cells": []}
+        for f in fractions:
+            r = soaring_harvest(W, w, f)
+            row["cells"].append({"f": f, "h": r["harvest_w"],
+                                 "v": r["v"], "soarable": r["soarable"],
+                                 "rotor_limited": r["rotor_limited"]})
+        out.append(row)
+    return out
+
+
+def rotor_size_sweep(W, w_thermal=3.2, f_lift=0.42, dias=(110, 130, 150, 175, 200)):
+    """Is the rotor the limit, or is the atmosphere?"""
+    base = C.RAT["rotor_dia"]
+    out = []
+    try:
+        for d in dias:
+            C.RAT["rotor_dia"] = float(d)
+            r = soaring_harvest(W, w_thermal, f_lift)
+            out.append({"dia": d, "harvest_w": r["harvest_w"], "v": r["v"],
+                        "rotor_limited": r["rotor_limited"],
+                        "surplus_w": r["surplus_w"],
+                        "emergency_w": rat_power(15.0)["p_elec"]})
+    finally:
+        C.RAT["rotor_dia"] = base
+    return out
 
 
 if __name__ == "__main__":

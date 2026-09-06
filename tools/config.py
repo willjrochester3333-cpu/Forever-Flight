@@ -367,10 +367,13 @@ MISSION = {
     "nu": 1.50e-5,                # kinematic viscosity, m2/s
     "g": 9.80665,
     "sites": [
-        # name,                latitude, day-of-year, sky clearness
-        ("S. Europe / California, mid-Aug",  38.0, 227, 0.78),
-        ("UK / N. Europe, late June",        51.5, 172, 0.68),
+        # name, latitude, day-of-year, sky clearness, peak thermal strength
+        # (m/s), peak fraction of time the aircraft can hold usable lift
+        ("S. Europe / California, mid-Aug",  38.0, 227, 0.78, 3.2, 0.42),
+        ("UK / N. Europe, late June",        51.5, 172, 0.68, 2.2, 0.34),
     ],
+    # Thermal day: both strength and availability follow a bell from t0 to t1.
+    "thermal_day": {"t0": 9.5, "t1": 18.5, "shape": 0.7},
 }
 
 PAYLOAD_SENSOR = {

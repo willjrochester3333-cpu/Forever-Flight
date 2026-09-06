@@ -75,6 +75,40 @@ def pack(meshes):
     return out, {"origin": lo, "scale": scale}
 
 
+def _harvest_spec():
+    """Soaring-cycle harvest: the grid, and where it converts to endurance."""
+    m = AN.mass_rollup()
+    W = m["mtow_g"] / 1000.0 * AN.G
+    site = C.MISSION["sites"][0]
+    grid = [{"w": row["w"],
+             "cells": [{"f": c["f"], "h": round(c["h"], 2),
+                        "soarable": c["soarable"],
+                        "rotor_limited": c["rotor_limited"]}
+                       for c in row["cells"]]}
+            for row in AN.harvest_grid(W)]
+    spill = []
+    for sc, lab in [(1.00, "clear sky, clean array"),
+                    (0.55, "thin overcast"),
+                    (0.40, "one of three strings failed"),
+                    (0.30, "heavy overcast"),
+                    (0.20, "array badly degraded")]:
+        a = AN.simulate(site, use_turbine=False, solar_scale=sc)
+        b = AN.simulate(site, use_turbine=True, solar_scale=sc)
+        dt = 30 / 3600
+        sp = sum(x["p_harvest"] * dt for x in b["trace"]
+                 if x["e"] >= b["usable_wh"] - 1e-6)
+        spill.append({"pct": round(sc * 100), "label": lab,
+                      "off": round(a["endurance_h"], 2),
+                      "on": round(b["endurance_h"], 2),
+                      "gain": round(b["endurance_h"] - a["endurance_h"], 2),
+                      "spilled": round(100 * sp / max(b["harvest_wh"], 1e-9))})
+    good = AN.soaring_harvest(W, 3.2, 0.42)
+    return {"grid": grid, "spill": spill,
+            "good": round(good["harvest_w"], 2),
+            "v_opt": good["v"],
+            "wh": round(AN.simulate(site)["harvest_wh"], 1)}
+
+
 def _mast_spec():
     """VDM-1 sizing, straight from tools/mast.py."""
     import mast as MS
@@ -197,12 +231,12 @@ def build():
     kp = AN.key_points(W)
     pms = AN.practical_min_sink(W)
     det = AN.detection()
-    sim = AN.simulate(C.MISSION["sites"][0], launch_h=9.0, peak_soar=0.75)
-    simb = AN.simulate(C.MISSION["sites"][0], launch_h=9.0, peak_soar=0.75,
+    sim = AN.simulate(C.MISSION["sites"][0], launch_h=9.0)
+    simb = AN.simulate(C.MISSION["sites"][0], launch_h=9.0,
                        use_solar=False, allow_soar=False)
-    sims = AN.simulate(C.MISSION["sites"][0], launch_h=9.0, peak_soar=0.75,
-                       allow_soar=False)
-    simu = AN.simulate(C.MISSION["sites"][1], launch_h=9.0, peak_soar=0.55)
+    sims = AN.simulate(C.MISSION["sites"][0], launch_h=9.0, allow_soar=False)
+    simu = AN.simulate(C.MISSION["sites"][1], launch_h=9.0)
+    simn = AN.simulate(C.MISSION["sites"][0], launch_h=9.0, use_turbine=False)
     L = B.solar_layout()
     st = AN.stability()
     wb = AN.wing_beam()
@@ -281,6 +315,7 @@ def build():
                        for k, v in AN.retraction_benefit().items()},
         "detect_rows": [{k: round(v, 5) for k, v in r.items()} for r in det["rows"]],
         "mast": _mast_spec(),
+        "harvest": _harvest_spec(),
         "polar": [{"v": round(r["V"], 2), "cl": round(r["CL"], 2),
                    "ld": round(r["LD"], 2), "sink": round(r["sink"], 3)}
                   for r in kp["sweep"] if round(r["CL"] * 100) % 5 == 0],

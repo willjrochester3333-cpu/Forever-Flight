@@ -177,6 +177,9 @@ td .flag{font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.
   display:block; margin-bottom:6px}
 .modes p{font-size:14.5px; color:var(--ink-2); margin:0; line-height:1.55}
 .modes .a{color:var(--ink-3)} .modes .b{color:var(--recover)} .modes .c{color:var(--good)}
+pre.eqn{font-family:"IBM Plex Mono",monospace; font-size:13px; line-height:1.75;
+  background:var(--sheet-2); border-left:2px solid var(--rule-strong);
+  padding:12px 16px; margin:18px 0; overflow-x:auto; color:var(--ink-2)}
 
 figure{margin:26px 0}
 figcaption{font-size:13.5px; color:var(--ink-3); margin-top:10px; max-width:60ch;
@@ -265,47 +268,62 @@ footer .fine{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spaci
   <main class="pad">
 
     <section>
-      <div class="eyebrow">Sheet 1 — the problem</div>
+      <div class="eyebrow">Sheet 1 — the dynamo</div>
       <div class="col">
-        <h2>A dynamo cannot make the flight longer</h2>
-        <p class="lede">The brief asked for a wind-driven generator to charge the
-          aircraft and extend its endurance. That is the one thing it cannot do.</p>
-        <p>A turbine takes its power out of the airstream, and that extraction
-          appears as drag. Making <span class="mono" id="p20">19.3</span> W
-          electrically costs <span class="mono" id="ps20">29.8</span> W of shaft
-          power — at 20 m/s, about <span class="mono" id="d20">1.49</span> N of
-          extra drag, roughly a tenth of the aircraft's weight. Sink rate goes from
-          <span class="mono" id="sinkbase">0.52</span> m/s to 5.6. You always put
-          in more than you get back.</p>
+        <h2>It works, and the energy is free</h2>
+        <p class="lede">In steady level flight a turbine cannot pay for itself.
+          This aircraft does not fly steady level flight — it soars, climbing on
+          atmospheric energy and descending on the turbine. Across that cycle
+          the source is the air, not the pack.</p>
+        <p>What the turbine can take is whatever the atmosphere offers
+          <em>beyond</em> what the airframe needs to stay up:</p>
+        <pre class="eqn">c_net = f·(w − s_circle) − (1 − f)·s_glide(v)
+P_surplus = W · c_net</pre>
+        <p>On a good day — 3.2 m/s thermals, in usable lift 42 % of the time —
+          that is <strong><span class="mono" id="hv-w">3.6</span> W
+          continuous</strong>, about <span class="mono" id="hv-pct">46</span> %
+          of the <span class="mono" id="hotel-w">7.9</span> W hotel load, and
+          <span class="mono" id="hv-wh">14</span> Wh over a flight — a quarter
+          of the pack's nameplate capacity.</p>
       </div>
 
-      <div class="scroll"><table id="rat-table"><thead><tr>
-        <th>Airspeed</th><th class="n">Power in the disc</th><th class="n">Shaft</th>
-        <th class="n">Electrical out</th><th class="n">Extraction drag</th>
-        <th class="n">Rotor</th></tr></thead><tbody></tbody></table></div>
+      <div class="scroll"><table id="harvest-table"><thead><tr>
+        <th>Thermal</th><th class="n">in lift 25 %</th><th class="n">30 %</th>
+        <th class="n">35 %</th><th class="n">40 %</th><th class="n">45 %</th>
+      </tr></thead><tbody></tbody></table></div>
+      <p style="font-size:13.5px;color:var(--ink-3);max-width:62ch;margin:-8px 0 0">
+        Sustainable electrical harvest, watts. Dashes: the aircraft cannot soar
+        unaided and the motor is running. Asterisk: rotor-limited — the
+        atmosphere is offering more surplus than a 150 mm rotor can absorb.</p>
 
       <div class="verdict">
-        <p>So the turbine here is a regenerative recovery device with a hard
-          control law, not a charger.</p>
-        <p class="why">It runs only when the energy is genuinely surplus. Three
-          honest jobs, and the third is the one that earns its 126 grams.</p>
+        <p>The catch is storage, not generation. On a clear day the array has
+          the pack full by mid-morning, and every watt-hour the turbine makes
+          is spilled.</p>
+        <p class="why">The energy is real; the tank is full. Which is exactly
+          why the turbine earns its place — it pays on the days the array
+          cannot, and costs nothing on the days it is not needed, because it is
+          stowed.</p>
       </div>
 
-      <div class="modes">
-        <div><h3 class="a">Mode A — surplus lift</h3>
-          <span class="val a">4 – 19 W</span>
-          <p>At the altitude ceiling with lift still coming up. Needs a 1.3–5.6 m/s
-             thermal to break even, so it is opportunistic, not a power plan.</p></div>
-        <div><h3 class="b">Mode B — regenerative descent</h3>
-          <span class="val b" id="regen-wh">0.48 Wh / 500 m</span>
-          <p>Any commanded descent. Modest, but it is energy you were going to throw
-             away as drag — and the turbine replaces the spoilers the wing would
-             otherwise need.</p></div>
-        <div><h3 class="c">Mode C — emergency power</h3>
-          <span class="val c">8.1 W at 15 m/s</span>
-          <p>Against a <span class="mono" id="hotel-w">7.9</span> W hotel load. With a
-             dead pack and a dead array it keeps the autopilot, GNSS and telemetry
-             alive the whole way down. This is why airliners carry one.</p></div>
+      <div class="scroll"><table id="spill-table"><thead><tr>
+        <th>Array output</th><th>Condition</th><th class="n">Turbine off</th>
+        <th class="n">Turbine on</th><th class="n">Gain</th>
+        <th class="n">Harvest spilled</th></tr></thead><tbody></tbody></table></div>
+
+      <div class="col">
+        <p>So the deploy rule follows straight from the physics: <strong>only
+          harvest when the pack has room.</strong> On a full pack the surplus
+          belongs in altitude or in survey coverage, not in a turbine with
+          nowhere to send it. And the turbine still has two other jobs —
+          it replaces the spoilers the wing would otherwise need, and with a
+          dead pack and a dead array it makes 8.1 W at 15 m/s against a 7.9 W
+          hotel load, keeping the autopilot and telemetry alive all the way
+          down.</p>
+        <p>One design consequence worth flagging: on strong days the rotor,
+          not the atmosphere, is the limit. Going from 150 to 175 mm buys about
+          0.7 W more harvest and 3 W more emergency power, for 18 mm more mast
+          stroke.</p>
       </div>
     </section>
 
@@ -522,10 +540,6 @@ const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /* ---------- numbers into the prose ---------- */
 const set = (id,v)=>{const e=document.getElementById(id); if(e) e.textContent=v;};
-const r20 = S.rat_rows.find(r=>r.v===20), r15 = S.rat_rows.find(r=>r.v===15);
-set("p20", r20.p_elec.toFixed(1)); set("ps20", r20.p_shaft.toFixed(1));
-set("d20", r20.extraction_drag_N.toFixed(2)); set("sinkbase", S.sink_bg.toFixed(2));
-set("regen-wh", S.regen.recovered_wh.toFixed(2)+" Wh / 500 m");
 set("hotel-w", S.hotel_w); set("arr-stc", S.array_stc); set("arr-cells", S.array_cells);
 set("af-r", S.airfoil_r); set("cruise-w", S.cruise_w); set("cd0", S.cd0.toFixed(4));
 set("vms", S.v_min_sink.toFixed(2)); set("sms", S.sink_min.toFixed(2));
@@ -547,14 +561,23 @@ document.getElementById("strip").innerHTML = strip.map(([k,v,u])=>
 
 /* ---------- tables ---------- */
 const tb = id => document.querySelector("#"+id+" tbody");
-tb("rat-table").innerHTML = S.rat_rows.map(r=>{
-  const hi = r.v===20 ? ' class="hi"' : '';
-  return `<tr${hi}><td class="mono">${r.v} m/s</td>
-    <td class="n">${(r.p_shaft/0.36).toFixed(1)} W</td>
-    <td class="n">${r.p_shaft.toFixed(1)} W</td>
-    <td class="n"><strong>${r.p_elec.toFixed(1)} W</strong></td>
-    <td class="n">${r.extraction_drag_N.toFixed(2)} N</td>
-    <td class="n">${r.rpm.toLocaleString(undefined,{maximumFractionDigits:0})} rpm</td></tr>`;
+const HV = S.harvest;
+set("hv-w", HV.good.toFixed(1)); set("hv-pct", Math.round(HV.good/S.hotel_w*100));
+set("hv-wh", Math.round(HV.wh));
+
+tb("harvest-table").innerHTML = HV.grid.map(row=>{
+  const cells = row.cells.map(c => c.soarable
+    ? `<td class="n"><strong>${c.h.toFixed(1)}</strong>${c.rotor_limited?'<span style="color:var(--ink-3)">*</span>':''}</td>`
+    : '<td class="n" style="color:var(--ink-3)">—</td>').join("");
+  return `<tr${row.w===3.0?' class="hi"':''}><td class="mono">${row.w.toFixed(1)} m/s</td>${cells}</tr>`;
+}).join("");
+
+tb("spill-table").innerHTML = HV.spill.map(r=>{
+  const gain = r.gain >= 0.05;
+  return `<tr${gain?' class="hi"':''}><td class="mono">${r.pct} %</td><td>${r.label}</td>
+    <td class="n">${r.off.toFixed(2)} h</td><td class="n">${r.on.toFixed(2)} h</td>
+    <td class="n"><strong style="color:${gain?'var(--good)':'var(--ink-3)'}">${r.gain>0?"+":""}${r.gain.toFixed(2)} h</strong></td>
+    <td class="n">${r.spilled} %</td></tr>`;
 }).join("");
 
 tb("det-table").innerHTML = S.detect_rows.map(r=>{
