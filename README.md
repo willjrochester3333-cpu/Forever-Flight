@@ -48,6 +48,7 @@ Full working in [docs/ANALYSIS.md](docs/ANALYSIS.md) §5.5.
 | [docs/DESIGN.md](docs/DESIGN.md) | The design plan — configuration, aerodynamics, structure, energy, mechanisms, autonomy, payload, flight test, risks |
 | [docs/ANALYSIS.md](docs/ANALYSIS.md) | Every computed number, generated from source |
 | [docs/VERTICAL_MAST.md](docs/VERTICAL_MAST.md) | VDM-1 — the telescoping vertical deployment mast and its micro linear actuator |
+| [docs/FLIGHT_ANALYSIS.md](docs/FLIGHT_ANALYSIS.md) | Flight log analysis — graphs, a fitted drag polar, and predictions from real flight data |
 | [docs/BUILD_MANUAL.md](docs/BUILD_MANUAL.md) | Bill of materials and construction sequence |
 
 ## The 3D model
@@ -68,6 +69,22 @@ Blender or Meshmixer before slicing, or print from `parts/` individually. The
 wing meshes on their own are watertight.
 
 Units are millimetres; +X aft with the nose at the origin, +Y starboard, +Z up.
+
+## Analysing a real flight
+
+```bash
+python3 tools/flight_analysis.py YOURLOG.BIN --mass 1.68 --open
+```
+
+Reads an ArduPilot log or any CSV and writes an HTML report: flight trace,
+measured drag polar against the design curve, energy accounting, and endurance
+re-predicted on the measured drag level. See
+[docs/FLIGHT_ANALYSIS.md](docs/FLIGHT_ANALYSIS.md). Try it on the bundled
+synthetic flight first:
+
+```bash
+python3 tools/flight_analysis.py data/example_flight.csv
+```
 
 ## Regenerating
 
@@ -91,6 +108,9 @@ and the detection performance all regenerate consistently.
 | `tools/build_model.py` | Lofted airframe, deployable pods, solar cell layout |
 | `tools/analysis.py` | Drag build-up, polar, turbine physics, clear-sky solar model, mission simulation, stability, wing beam, LWIR detection |
 | `tools/mast.py` | VDM-1 sizing: stroke, stage count, drive loads, actuator selection, resonance |
+| `tools/flightlog.py` | Log readers: ArduPilot .BIN, ArduPilot .log, or any CSV |
+| `tools/flight_analysis.py` | Flight report: segmentation, drag-polar fit with bootstrap intervals, endurance re-prediction, HTML + SVG charts |
+| `tools/simulate_flight.py` | Synthetic flight log, flown against the design model, for testing the analyser |
 | `tools/render.py` | Z-buffered PNG renderer for the three-views |
 
 ## Status
