@@ -42,10 +42,11 @@ are identical, so what you learn transfers directly.
 | 1 | Title, print check, key numbers, sheet index |
 | 2 | Build notes — tiling, two ways to make the wing, build order, balance |
 | 3–9 | Wing panel, full size. Cut 2, one mirrored |
-| 10–11 | Aerofoil templates, FF-SC1 at 195 / 160 / 128 / 92 mm chord |
-| 12–17 | Fuselage pod, side and plan |
-| 18–20 | Formers |
-| 21–22 | V-tail panel. Cut 2, one mirrored |
+| 10 | **How the wing is cut** — schematic, not to scale |
+| 11–12 | Aerofoil templates, FF-SC1 at 195 / 160 / 128 / 92 mm chord |
+| 13–18 | Fuselage pod, side and plan |
+| 19–21 | Formers |
+| 22–23 | V-tail panel. Cut 2, one mirrored |
 
 ## Tiling
 
@@ -56,9 +57,36 @@ is labelled `R<row>C<column>`.
 
 ## Two ways to make the wing
 
+**The planform sheets are not the cut outline for a solid wing.** A hot wire
+spans two templates and sweeps a *ruled* surface between them, so the aerofoil
+comes from the template sheets at the ends of the block. The planform is the
+plan-view check and the marking guide for the spar and hinge lines. Sheet 10
+shows the setup.
+
 **Hot-wire cores** — accurate, needs a wire bow. Transfer the aerofoil sheets
-to 1.5 mm ply or aluminium, pin them at the right stations on an XPS block and
-wire between them. This gives the true FF-SC1 section.
+to 1.5 mm ply or aluminium, pin one at each end of an XPS block, and run the
+wire along both at once. Every template carries the same numbered index marks
+at 5 / 10 / 20 / 30 / 45 / 60 / 75 / 90 % chord: call the numbers out loud and
+move together. The root end travels further per number because its chord is
+longer, and that is exactly what cuts the taper.
+
+**Four cuts per side, not one.** The planform changes taper three times, and a
+wire can only make straight lines between corresponding points:
+
+| Segment | Length | Templates |
+|---|---|---|
+| y 0 – 450 | 450 mm | 195 and 195 (constant section) |
+| y 450 – 850 | 400 mm | 195 and 160 |
+| y 850 – 960 | 110 mm | 160 and 128 |
+| y 960 – 1000 | 40 mm | 128 and 92 — hand-shape this one |
+
+Trying to do it in one cut from the break to the tip would give 120 mm of
+chord at y = 850 instead of 160 mm, losing about 40 mm of chord and a
+meaningful slice of wing area per side.
+
+Rotate the tip template 2° trailing-edge-up on the outboard panels for
+washout, and align the 0 % marks of both templates on one straight line — the
+leading edge is unswept.
 
 **Flat foam** — quick, no tools. Cut the planform from 6 mm Depron, score the
 underside along the spar line and fold a leading-edge wrap over the carbon

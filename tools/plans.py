@@ -43,6 +43,9 @@ LW_CUT = 0.45         # mm line width, cut lines
 LW_MARK = 0.22        # reference lines
 LW_FINE = 0.13        # grid, hatching
 
+# Chord fractions where every template gets a numbered index mark.
+INDEX_STATIONS = (0.05, 0.10, 0.20, 0.30, 0.45, 0.60, 0.75, 0.90)
+
 # Foam prototype mass budget (no solar, no turbine, no mast) -- grams
 PROTO_MASS = [
     ("Wing cores, XPS 30 kg/m3", 128.0),
@@ -238,6 +241,23 @@ def reg_marks(page, x0, y0, x1, y1, col, row, ncols, nrows, ov):
     page.restore()
 
 
+def single(doc, dw, title, sub_, sheet, total, landscape=True, pad=4.0):
+    """One page, scaled to fit. Only for sheets explicitly marked not-to-scale."""
+    pw, ph = (P.A4[1], P.A4[0]) if landscape else P.A4
+    uw = pw - 2 * MARGIN
+    uh = ph - 2 * MARGIN - 15.0
+    x0, y0, x1, y1 = dw.bbox()
+    W, H = (x1 - x0) + 2 * pad, (y1 - y0) + 2 * pad
+    sc = min(uw / W, uh / H, 1.0)
+    pg = doc.page(pw, ph)
+    pg.save().mm_frame(sc, MARGIN + (uw - W * sc) / 2.0 - (x0 - pad) * sc,
+                       MARGIN + 15.0 - (y0 - pad) * sc)
+    render(pg, dw)
+    pg.restore()
+    frame(pg, title, sub_, sheet, total)
+    return pg
+
+
 def tile(doc, dw, title, pages_so_far, total_est, landscape=True, pad=6.0):
     """Lay a Drawing across as many A4 sheets as it needs."""
     pw, ph = (P.A4[1], P.A4[0]) if landscape else P.A4
@@ -406,9 +426,156 @@ def airfoil_template(chord, label, spar_tube=8.0):
     dw.poly([(sx, yc + tube / 2.0), (sx, top + 3.0)], kind="dim")
     dw.text(sx, top + 4.2, f"spar {tube:.0f} mm  (section {thick:.1f} mm here)",
             size=2.5, align="c")
+
+    # Index marks. A hot wire spans two templates at once; the operators keep
+    # in step by calling the same numbers, and because the chords differ the
+    # wire travels further per number at the root -- which is what cuts the
+    # taper. Every template carries the same numbering.
+    for i, f2 in enumerate(INDEX_STATIONS, start=1):
+        for seq, sign in ((ups, 1.0), (los, -1.0)):
+            yy = surf_y(seq, f2) * chord
+            dw.poly([(f2 * chord, yy), (f2 * chord, yy + sign * 2.6)],
+                    kind="dim")
+            dw.text(f2 * chord, yy + sign * 4.8 - (0.0 if sign > 0 else 1.6),
+                    str(i), size=2.3, align="c")
     dw.text(0, chord * 0.14, label, size=4.2, bold=True)
     dw.text(0, chord * 0.14 - 5.5, f"chord {chord:.0f} mm", size=3.0)
     dw.dim(0, -13, chord, -13, f"{chord:.0f}")
+    return dw
+
+
+def wing_cut_diagram():
+    """How the planform sheets and the aerofoil sheets relate to each other.
+
+    The planform is NOT the cut outline for a solid wing -- a hot wire sweeps a
+    RULED surface between two end templates, so the section comes from the
+    template sheets and the planform is the plan-view check.
+    """
+    dw = Drawing("howtocut")
+    st = _wing_stations()
+    dw.text(0, 168, "HOW THE WING IS CUT", size=7.0, bold=True)
+    dw.text(0, 161, "DIAGRAM - NOT TO SCALE. The only 1:1 sheets are the "
+            "planform, aerofoil, pod, former and tail sheets.", size=3.2)
+
+    # ---- route 1: hot wire ------------------------------------------
+    dw.text(0, 150, "ROUTE 1  -  HOT-WIRE CORES  (true FF-SC1 section)",
+            size=4.6, bold=True)
+    dw.text(0, 144, "The wire spans TWO templates and sweeps between",
+            size=3.1)
+    dw.text(0, 139.5, "them. The aerofoil comes from the templates at the ends",
+            size=3.1)
+    dw.text(0, 135.0, "of the block, not from the planform.", size=3.1)
+
+    bx, by, bw, bh = 0.0, 74.0, 120.0, 52.0
+    dw.poly([(bx, by), (bx + bw, by), (bx + bw, by + bh), (bx, by + bh)],
+            kind="cut", close=True)
+    dw.text(bx + bw / 2, by + bh + 4, "XPS BLOCK, seen from above",
+            size=3.2, align="c", bold=True)
+    dw.poly([(bx, by), (bx, by + bh)], kind="fold")
+    dw.poly([(bx + bw, by), (bx + bw, by + bh)], kind="fold")
+    dw.text(bx + 2, by + bh - 6, "ROOT", size=3.4, bold=True)
+    dw.text(bx + bw - 2, by + bh - 6, "TIP", size=3.4, bold=True, align="r")
+    dw.text(bx + 2, by + bh - 10.5, "template pinned", size=2.6)
+    dw.text(bx + bw - 2, by + bh - 10.5, "template pinned", size=2.6, align="r")
+
+    for k, f in enumerate((0.12, 0.42, 0.72)):
+        yy0 = by + bh - 14 - f * (bh - 20)
+        yy1 = by + bh - 14 - f * (bh - 30)
+        dw.poly([(bx, yy0), (bx + bw, yy1)], kind="guide")
+    dw.text(bx + bw / 2, by + 5, "wire positions as it sweeps LE -> TE",
+            size=2.8, align="c")
+    dw.poly([(bx + bw / 2 - 16, by + 12), (bx + bw / 2 + 16, by + 12)],
+            kind="dim")
+    dw.poly([(bx + bw / 2 + 16, by + 12), (bx + bw / 2 + 12, by + 13.6)],
+            kind="dim")
+    dw.poly([(bx + bw / 2 + 16, by + 12), (bx + bw / 2 + 12, by + 10.4)],
+            kind="dim")
+    dw.text(bx + bw / 2 - 18, by + 12, "SPAN", size=2.8, align="r")
+
+    # two templates at their true relative sizes, with index marks
+    sc = 0.32
+    for j, (c, lab) in enumerate(((st[0][1], "ROOT 195"), (st[2][1], "TIP 160"))):
+        ox = j * 70.0
+        _loop, upper, _p = B.wing_section()
+        pts = [(x * c * sc + ox, y * c * sc + 46.0) for (x, y) in _loop]
+        dw.poly(pts, kind="cut", close=True)
+        dw.poly([(ox, 46.0), (ox + c * sc, 46.0)], kind="mark")
+        for i, f2 in enumerate(INDEX_STATIONS, start=1):
+            dw.poly([(ox + f2 * c * sc, 46.0 + 1.0),
+                     (ox + f2 * c * sc, 46.0 + 5.2)], kind="dim")
+            dw.text(ox + f2 * c * sc, 46.0 + 6.4, str(i), size=2.2, align="c")
+        dw.text(ox, 38.0, lab, size=3.4, bold=True)
+    dw.text(0, 32.5, "Both templates carry the SAME numbered index marks.",
+            size=3.0)
+    dw.text(0, 28.0, "Call the numbers out loud and move together. The root end",
+            size=3.0)
+    dw.text(0, 23.5, "travels further per number because its chord is longer -",
+            size=3.0)
+    dw.text(0, 19.0, "that is what cuts the taper. Align the 0 % marks of both",
+            size=3.0)
+    dw.text(0, 14.5, "templates on one straight line: the LE is unswept.",
+            size=3.0)
+    dw.text(0, 8.0, "For the outboard panel, rotate the TIP template "
+            f"{abs(C.WING['stations'][-1][4]):.1f} deg", size=3.0, bold=True)
+    dw.text(0, 3.5, "trailing-edge-up for washout.", size=3.0, bold=True)
+
+    # ---- the four segments ------------------------------------------
+    tx = 140.0
+    dw.text(tx, 150, "FOUR CUTS PER SIDE, NOT ONE", size=4.6, bold=True)
+    dw.text(tx, 144, "A wire makes a straight-line (ruled) surface. This",
+            size=3.1)
+    dw.text(tx, 139.5, "planform changes taper three times, so each segment",
+            size=3.1)
+    dw.text(tx, 135.0, "is its own cut with its own pair of templates.", size=3.1)
+    yy = 131.0
+    dw.text(tx, yy, "SEGMENT", size=2.8, bold=True)
+    dw.text(tx + 34, yy, "LENGTH", size=2.8, bold=True)
+    dw.text(tx + 56, yy, "TEMPLATES", size=2.8, bold=True)
+    yy -= 5.0
+    for i in range(len(st) - 1):
+        y0, c0 = st[i]
+        y1, c1 = st[i + 1]
+        dw.poly([(tx, yy + 3.4), (tx + 110, yy + 3.4)], kind="dim")
+        dw.text(tx, yy, f"y {y0:.0f} - {y1:.0f}", size=3.0)
+        dw.text(tx + 34, yy, f"{y1 - y0:.0f} mm", size=3.0)
+        dw.text(tx + 56, yy, f"{c0:.0f} and {c1:.0f} mm", size=3.0)
+        yy -= 5.6
+    dw.text(tx, yy - 1, "The last segment is only 40 mm long - hand-shape the "
+            "tip cap from the", size=3.0)
+    dw.text(tx, yy - 5.5, "128 mm template and sand to the planform instead of "
+            "wiring it.", size=3.0)
+
+    # ---- route 2: flat foam -----------------------------------------
+    yy -= 16.0
+    dw.text(tx, yy, "ROUTE 2  -  FLAT FOAM  (no hot wire)", size=4.6, bold=True)
+    yy -= 6.0
+    dw.text(tx, yy, "Here the planform IS the cut outline. The section is made "
+            "by folding, not cutting:", size=3.1)
+
+    yy -= 14.0
+    sc2 = 0.44
+    c = st[0][1] * sc2
+    dw.poly([(tx, yy), (tx + c, yy)], kind="cut")
+    dw.poly([(tx, yy - 2.0), (tx + c, yy - 2.0)], kind="cut")
+    dw.poly([(tx + 0.25 * c, yy - 2.0), (tx + 0.25 * c, yy)], kind="fold")
+    dw.text(tx + 0.25 * c + 2.0, yy - 6.5, "score the UNDERSIDE here (25 % chord)",
+            size=2.6)
+    dw.text(tx, yy + 4.5, "1  flat sheet", size=3.0, bold=True)
+
+    yy -= 26.0
+    prof = [(0.0, 0.0), (0.06, 0.030), (0.15, 0.045), (0.30, 0.050),
+            (0.50, 0.044), (0.75, 0.026), (1.0, 0.004)]
+    up = [(tx + x * c, yy + y * c) for (x, y) in prof]
+    dw.poly(up, kind="cut")
+    dw.poly([(tx, yy), (tx + c, yy + 0.004 * c)], kind="cut")
+    dw.circle(tx + 0.30 * c, yy + 0.026 * c, 2.0, kind="mark")
+    dw.text(tx + 0.30 * c + 3.5, yy + 0.026 * c, "spar", size=2.6)
+    dw.text(tx, yy + 14.0, "2  fold the leading edge over the spar and tape",
+            size=3.0, bold=True)
+    dw.text(tx, yy - 6.0, "Gives a cambered plate with a rounded LE. Costs "
+            "about 15 % of L/D against the", size=3.0)
+    dw.text(tx, yy - 10.5, "true section. Planform, span and centre of gravity "
+            "are unchanged.", size=3.0)
     return dw
 
 
@@ -774,6 +941,7 @@ def main():
 
     parts = [
         ("WING PANEL", wing_planform(), True),
+        ("HOW THE WING IS CUT", "single", True),
         ("AEROFOIL TEMPLATES", None, True),
         ("FUSELAGE POD", fuselage_pod(), True),
         ("FORMERS", formers(), True),
@@ -798,7 +966,8 @@ def main():
 
     counts = {}
     for name, dw, _ls in parts:
-        counts[name] = 2 if dw is None else tile_count(dw)
+        counts[name] = (2 if dw is None else 1 if dw == "single"
+                        else tile_count(dw))
     total = 2 + sum(counts.values())
 
     index, n = [], 2
@@ -811,7 +980,12 @@ def main():
 
     made = 2
     for name, dw, _ls in parts:
-        if dw is None:
+        if dw == "single":
+            made += 1
+            single(doc, wing_cut_diagram(), name,
+                   "schematic, not to scale - the 1:1 sheets are the planform, "
+                   "aerofoil, pod, former and tail sheets", made, total)
+        elif dw is None:
             for i in range(0, len(af_specs), 2):
                 pg = doc.page(P.A4[1], P.A4[0])
                 pg.save().mm_frame(1.0, MARGIN + 14.0, MARGIN + 34.0)
@@ -835,6 +1009,8 @@ def main():
     dxf_dir = os.path.join(OUT, "dxf")
     dxf = []
     for name, dw, _ls in parts:
+        if dw == "single":
+            continue
         if dw is None:
             for c, lab in af_specs:
                 d = airfoil_template(c, lab)
