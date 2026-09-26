@@ -48,6 +48,7 @@ Full working in [docs/ANALYSIS.md](docs/ANALYSIS.md) §5.5.
 | [docs/DESIGN.md](docs/DESIGN.md) | The design plan — configuration, aerodynamics, structure, energy, mechanisms, autonomy, payload, flight test, risks |
 | [docs/ANALYSIS.md](docs/ANALYSIS.md) | Every computed number, generated from source |
 | [docs/VERTICAL_MAST.md](docs/VERTICAL_MAST.md) | VDM-1 — the telescoping vertical deployment mast and its micro linear actuator |
+| [docs/PLANS.md](docs/PLANS.md) | Printable 1:1 build plans, tiled for A4 |
 | [docs/FLIGHT_ANALYSIS.md](docs/FLIGHT_ANALYSIS.md) | Flight log analysis — graphs, a fitted drag polar, and predictions from real flight data |
 | [docs/BUILD_MANUAL.md](docs/BUILD_MANUAL.md) | Bill of materials and construction sequence |
 
@@ -69,6 +70,16 @@ Blender or Meshmixer before slicing, or print from `parts/` individually. The
 wing meshes on their own are watertight.
 
 Units are millimetres; +X aft with the nose at the origin, +Y starboard, +Z up.
+
+## Building one
+
+```bash
+python3 tools/plans.py     # plans/FF-1_plans_A4.pdf -- 22 sheets, print at 100%
+```
+
+Full-size foam-prototype templates tiled onto A4: wing, aerofoil sections,
+fuselage pod, formers, V-tail. Print at **actual size**, never "fit to page".
+See [docs/PLANS.md](docs/PLANS.md).
 
 ## Analysing a real flight
 
@@ -108,6 +119,8 @@ and the detection performance all regenerate consistently.
 | `tools/build_model.py` | Lofted airframe, deployable pods, solar cell layout |
 | `tools/analysis.py` | Drag build-up, polar, turbine physics, clear-sky solar model, mission simulation, stability, wing beam, LWIR detection |
 | `tools/mast.py` | VDM-1 sizing: stroke, stage count, drive loads, actuator selection, resonance |
+| `tools/plans.py` | Printable A4 build plans: tiled 1:1 templates, aerofoil sections, formers, DXF |
+| `tools/pdf.py` | Minimal vector PDF writer (exact page sizes, so prints come out 1:1) |
 | `tools/flightlog.py` | Log readers: ArduPilot .BIN, ArduPilot .log, or any CSV |
 | `tools/flight_analysis.py` | Flight report: segmentation, drag-polar fit with bootstrap intervals, endurance re-prediction, HTML + SVG charts |
 | `tools/simulate_flight.py` | Synthetic flight log, flown against the design model, for testing the analyser |
