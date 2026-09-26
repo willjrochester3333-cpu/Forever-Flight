@@ -45,7 +45,7 @@ LW_FINE = 0.13        # grid, hatching
 
 # Foam prototype mass budget (no solar, no turbine, no mast) -- grams
 PROTO_MASS = [
-    ("Wing cores, XPS 30 kg/m3", 112.0),
+    ("Wing cores, XPS 30 kg/m3", 128.0),
     ("Wing skin: 25 g/m2 glass or laminating film", 78.0),
     ("Wing spar, 8 mm carbon tube + joiner", 52.0),
     ("Control surfaces, hinges, horns", 22.0),
@@ -454,8 +454,9 @@ def fuselage_pod(x_max=620.0):
     dw.poly([(0, dy), (x_max, dy)], kind="mark")
     dw.text(6, dy + 34, "PLAN VIEW", size=4.0, bold=True)
     dw.text(6, 44, "SIDE VIEW - cut 2 sides from 3 mm depron", size=4.0, bold=True)
+    boom_len = C.VTAIL["le_x"] + C.VTAIL["root_chord"] - x_max + 90.0
     dw.text(6, 38, f"boom socket at x={x_max:.0f}: 16 mm carbon tube, "
-            f"{C.VTAIL['le_x'] - x_max + 90:.0f} mm long", size=3.0)
+            f"{boom_len:.0f} mm long (90 mm buried in the pod)", size=3.0)
     dw.dim(0, 62, x_max, 62, f"POD LENGTH {x_max:.0f}")
     return dw
 

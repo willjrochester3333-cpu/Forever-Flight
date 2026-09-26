@@ -65,15 +65,64 @@ underside along the spar line and fold a leading-edge wrap over the carbon
 tube. Costs about 15 % of L/D against the true section; planform and CG are
 unchanged.
 
+## Materials
+
+Quantities are for one aircraft, taken from the plan geometry.
+
+### Foam — which type matters
+
+| Part | Material | Quantity |
+|---|---|---|
+| Wing cores *(hot-wire route)* | **XPS** insulation board, 25 mm, 30–35 kg/m³ | 2 blocks 1000 × 205 × 24 mm — one 1250 × 600 board does both |
+| Wing *(flat-foam route)* | **Depron / XPS sheet, 6 mm** | 0.36 m² planform + LE wrap → one 1250 × 800 sheet |
+| Fuselage pod sides | Depron, 3 mm | 2 off, 620 × 96 mm |
+| V-tail | Depron or XPS, 5 mm | 2 off, 300 × 140 mm |
+| Formers | 3 mm liteply *(or 5 mm Depron)* | 8 off, largest 80 × 96 mm |
+
+**XPS** — extruded polystyrene, the blue/pink/grey building insulation board.
+Closed-cell, smooth, hot-wires cleanly, cheap. This is the one for cut cores.
+
+**EPS** — the white beady packaging stuff. Cuts, but the bead texture wrecks
+the surface finish and it is weaker for the same density. Not for the wing.
+
+**EPP** — tough and bouncy, survives crashes. Too floppy and too heavy here;
+it would blunt the section and spoil the polar measurement, which is the whole
+point of this airframe.
+
+### Everything else
+
+| | |
+|---|---|
+| Main spar | 8 mm OD × 6 mm ID pultruded carbon tube, 2 × 1000 mm, plus a 6 mm joiner ~200 mm |
+| Tail boom | 16 mm OD carbon tube, 660 mm (90 mm buried in the pod) |
+| Wing skin | 25 g/m² glass cloth + laminating epoxy, **or** heat-shrink laminating film / fibre-reinforced packing tape |
+| Adhesive | Epoxy, PVA/white glue, foam-safe CA, or hot glue |
+| Hinges | Clear packing tape, or Blenderm surgical tape |
+
+### The mistake that ruins foam builds
+
+**Polystyrene dissolves in petrol-based solvents, polyester resin and ordinary
+CA accelerator.** Standard cyanoacrylate and rattle-can paint will eat straight
+through XPS and Depron. Use epoxy, PVA, *foam-safe* CA, or hot glue, and test
+any paint on an offcut first.
+
+### The skin is not optional
+
+A bare foam wing has roughly twice the parasite drag of a skinned one — the
+open cell texture trips the boundary layer everywhere. The C_D0 of 0.031 that
+the performance prediction assumes is for a skinned, sanded surface. Skip the
+skin and you will measure an L/D nearer 11 than 15.6, and you will wrongly
+conclude the design is bad.
+
 ## Predicted performance
 
-At the 817 g target mass in the plan's budget, with C_D0 taken as 0.031 for a
+At the 833 g target mass in the plan's budget, with C_D0 taken as 0.031 for a
 foam build (rougher surface, blunter leading edge, exposed linkages):
 
 | | |
 |---|---|
-| Wing loading | 22.4 g/dm² — lighter than the composite aircraft |
-| Stall | 5.5 m/s |
+| Wing loading | 23.3 g/dm² — lighter than the composite aircraft |
+| Stall | 5.6 m/s |
 | Best glide | L/D 15.6 at 6.4 m/s |
 | Minimum sink | 0.41 m/s |
 
@@ -86,7 +135,7 @@ Fit a flight controller and an **airspeed sensor**, fly the polar sortie in
 [FLIGHT_ANALYSIS.md](FLIGHT_ANALYSIS.md) §4, and run:
 
 ```bash
-python3 tools/flight_analysis.py YOURLOG.BIN --mass 0.82
+python3 tools/flight_analysis.py YOURLOG.BIN --mass 0.83
 ```
 
 That returns the measured sink polar and the drag level against this
