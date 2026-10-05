@@ -19,6 +19,11 @@ retracting pods, so with the pods gone they are pure drag and they go too.
 | `glider-2500` | 2.54 m | none | 1059 g | 18.9 g/dm² | 5.0 m/s | 16.7 | 0.35 m/s |
 | `motor-2500` | 2.54 m | nose folder | 1151 g | 20.6 g/dm² | 5.3 m/s | 16.6 | 0.37 m/s |
 
+Each model carries the full wing solar array, scribed hinge lines on the
+ailerons, flaps and ruddervators, the ventral sensor turret, and the real
+FF-SC1 section lofted through every station — everything in the FF-1 model
+except the two retractable pods and their housings.
+
 C_D0 is 0.0316 (0.0320 with the nose motor), built from the design component
 table with the spine, keel fairing, bay doors and solar-cell steps removed and
 a foam-surface penalty added. The composite FF-1 is 0.0247.
@@ -64,6 +69,22 @@ Structure scales with the geometric factor, bought gear does not:
 | k² (area) | skins, pod, boom, tail, control surfaces |
 | k⁰ (fixed) | motor, ESC, battery, RX, servos, flight controller |
 
+## What is in each model
+
+| Group | |
+|---|---|
+| `wing_stbd` / `wing_port` | FF-SC1 lofted through every station, with dihedral and washout |
+| `solar_cells` | 34 cell strips, surface-conforming |
+| `panel_lines` | scribed hinge lines, aileron / flap / ruddervator, both surfaces |
+| `fuselage` | pod and boom |
+| `sensor_turret` | ventral, under the nose |
+| `vtail_stbd` / `vtail_port` | 38° dihedral |
+| `nose_motor` | spinner and folding blades — motor variants only |
+
+Deliberately absent: the retractable motor pylon, the energy-recovery turbine
+mast, the dorsal spine and the keel fairing. The last two only existed to
+swallow the first two.
+
 ## Changing the span
 
 Edit `VARIANTS` in `tools/variants.py` — the scale factor is the second field:
@@ -85,7 +106,7 @@ docs/img/variants/*.png           renders, plus size-comparison.png
 ```
 
 The OBJ files carry named groups (`wing_stbd`, `fuselage`, `vtail_port`,
-`nose_motor`, …) so you can hide or re-colour parts in a CAD or 3D tool. The
+`nose_motor`, `solar_cells`, `panel_lines`, …) so you can hide or re-colour parts in a CAD or 3D tool. The
 STL is a visual/assembly model: components interpenetrate where they join, so
 boolean them before slicing if you intend to print one.
 

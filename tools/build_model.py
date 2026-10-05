@@ -40,6 +40,7 @@ OPTS = {
     "ventral": True,       # keel fairing -- only needed to stow the turbine
     "solar": True,
     "turret": True,
+    "panel_lines": True,   # scribed hinge lines on the control surfaces
 }
 
 LOD = {"airfoil_n": 90, "wing_bays": 5, "fuse_pts": 32, "blister_pts": 24,
@@ -586,6 +587,102 @@ def _upper_yc(upper, xc):
     return upper[-1][1]
 
 
+def _wing_surfaces():
+    """(upper, lower) surface point lists for the wing section, LE -> TE."""
+    loop, upper, _props = wing_section()
+    n = len(upper)
+    return upper, [(x, y) for (x, y) in loop[n - 1:]]
+
+
+def _surf_pt(stns, upper, lower, y, xc, side, standoff):
+    """A point on the wing skin at spanwise y and chord fraction xc."""
+    st = _interp_station(stns, abs(y))
+    yc = _upper_yc(upper, xc) if side > 0 else _upper_yc(lower, xc)
+    p = place_section([(xc, yc)], st["chord"], st["le_x"], y, st["z"],
+                      st["angle"])[0]
+    return (p[0], p[1], p[2] + side * standoff)
+
+
+def build_panel_lines(width_mm=2.2, standoff=0.45):
+    """Scribed hinge lines on the ailerons, flaps and ruddervators.
+
+    Thin surface-conforming strips rather than a boolean cut: the aim is a
+    model that reads as an aircraft, and a cut would make the wing non-manifold
+    for no visual gain.
+    """
+    upper, lower = _wing_surfaces()
+    stns = wing_geometry()
+    out = M.Mesh("panel_lines")
+
+    def strip(y0, y1, xc0, xc1, side, steps=10):
+        grid = []
+        for i in range(steps + 1):
+            yy = y0 + (y1 - y0) * i / steps
+            grid.append([_surf_pt(stns, upper, lower, yy, xc0, side, standoff),
+                         _surf_pt(stns, upper, lower, yy, xc1, side, standoff)])
+        m = M.Mesh("s")
+        idx = [[m.add_vertex(p) for p in row] for row in grid]
+        for i in range(steps):
+            if side > 0:
+                m.quad(idx[i][0], idx[i][1], idx[i + 1][1], idx[i + 1][0])
+            else:
+                m.quad(idx[i][0], idx[i + 1][0], idx[i + 1][1], idx[i][1])
+        return m
+
+    for key in ("aileron", "flap"):
+        cs = C.WING[key]
+        hinge = 1.0 - cs["chord_frac"]
+        for sign in (1.0, -1.0):
+            y0, y1 = sign * cs["y0"], sign * cs["y1"]
+            for side in (1.0, -1.0):
+                st = _interp_station(stns, cs["y0"])
+                w = width_mm / st["chord"]
+                out.merge(strip(y0, y1, hinge - w / 2, hinge + w / 2, side),
+                          group_name="panel_lines")
+                # end ribs: hinge line to trailing edge at each end
+                for yy in (y0, y1):
+                    out.merge(strip(yy - sign * width_mm / 2,
+                                    yy + sign * width_mm / 2,
+                                    hinge, 0.995, side, steps=2),
+                              group_name="panel_lines")
+    return out
+
+
+def build_vtail_panel_lines(width_mm=2.0, standoff=0.4):
+    v = C.VTAIL
+    loop = symmetric_loop(v["thickness"])
+    n = len(loop) // 2
+    upper, lower = loop[:n + 1][::-1], loop[n:]
+    hinge = 1.0 - v["ruddervator_chord_frac"]
+    out = M.Mesh("vtail_lines")
+    steps = 8
+    for side, seq in ((1.0, upper), (-1.0, lower)):
+        rows = []
+        for i in range(steps + 1):
+            t = i / steps
+            span = t * v["panel_span"]
+            chord = v["root_chord"] + t * (v["tip_chord"] - v["root_chord"])
+            le_x = v["le_x"] + span * math.tan(math.radians(v["sweep_le"]))
+            w = width_mm / chord
+            row = []
+            for xc in (hinge - w / 2, hinge + w / 2):
+                yc = _upper_yc(seq, xc)
+                p = place_section([(xc, yc)], chord, le_x, span, v["root_z"],
+                                  v["incidence"])[0]
+                row.append((p[0], p[1], p[2] + side * standoff))
+            rows.append(row)
+        m = M.Mesh("s")
+        idx = [[m.add_vertex(p) for p in r] for r in rows]
+        for i in range(steps):
+            if side > 0:
+                m.quad(idx[i][0], idx[i][1], idx[i + 1][1], idx[i + 1][0])
+            else:
+                m.quad(idx[i][0], idx[i + 1][0], idx[i + 1][1], idx[i][1])
+        m.apply(M.rot_about(v["dihedral"], "x", (0.0, 0.0, v["root_z"])))
+        out.merge(m, group_name="vtail_lines")
+    return out
+
+
 def build_solar_cells(standoff=0.7):
     """Thin cell strips conforming to the wing upper surface, one group each."""
     _loop, upper, _p = wing_section()
@@ -662,6 +759,11 @@ def assemble(deployed=True):
 
     if OPTS["solar"]:
         a.merge(build_solar_cells(), group_name="solar_cells")
+    if OPTS["panel_lines"]:
+        a.merge(build_panel_lines(), group_name="panel_lines")
+        vl = build_vtail_panel_lines()
+        a.merge(vl, group_name="panel_lines")
+        a.merge(vl.mirrored_y(), group_name="panel_lines")
     return a, props, mhub, rhub
 
 

@@ -154,11 +154,12 @@ def span_stretch_check():
         C.WING["stations"] = [tuple(r) for r in saved]
 
 
-def build(name, scale, motor, solar=False, turret=True):
+def build(name, scale, motor, solar=True, turret=True):
     saved = dict(B.OPTS)
     try:
         B.OPTS.update({"motor": motor, "turbine": False, "spine": False,
-                       "ventral": False, "solar": solar, "turret": turret})
+                       "ventral": False, "solar": solar, "turret": turret,
+                       "panel_lines": True})
         a, props, _m, _r = B.assemble(True)
     finally:
         B.OPTS.clear()
