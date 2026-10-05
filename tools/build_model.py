@@ -31,6 +31,17 @@ import mesh as M
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Tessellation. The STL wants density; the web viewer wants bytes.
+# Airframe options. assemble() reads these, so a variant is a dict, not a fork
+# of the builder. Defaults reproduce the baseline FF-1.
+OPTS = {
+    "motor": "pylon",      # "pylon" (retractable) | "nose" (fixed folder) | "none"
+    "turbine": True,       # ventral energy-recovery turbine
+    "spine": True,         # dorsal fairing -- only needed to stow the pylon
+    "ventral": True,       # keel fairing -- only needed to stow the turbine
+    "solar": True,
+    "turret": True,
+}
+
 LOD = {"airfoil_n": 90, "wing_bays": 5, "fuse_pts": 32, "blister_pts": 24,
        "nacelle_pts": 20, "blade_steps": 10, "vtail_steps": 8, "cell_nx": 3,
        "cell_nc": 5, "strut_steps": 6, "turret_steps": 18}
@@ -340,6 +351,49 @@ def build_turbine(deployed=True):
     return rot
 
 
+def build_nose_motor(deployed=True):
+    """Fixed nose folding prop (Variant N).
+
+    Available because the sensor turret is slung UNDER the nose rather than on
+    it, so the nose tip is free. No pylon, no bay, no actuator, and the blades
+    fold flat against the fuselage when the motor is off.
+    """
+    m = C.MOTOR
+    pod = M.Mesh("nose_motor")
+    R = m["prop_dia"] / 2.0
+    pitch_mm = m["prop_pitch_in"] * 25.4
+
+    # spinner: base at the nose, apex forward (-X)
+    sp = []
+    for i in range(10):
+        t = i / 9.0
+        r = (m["spinner_dia"] / 2.0) * math.sqrt(max(1e-6, 1.0 - t * t))
+        sp.append([(-t * m["spinner_len"], p[1], p[2])
+                   for p in M.circle(r, npts=LOD["nacelle_pts"])])
+    pod.merge(M.loft(list(reversed(sp)), cap_start=True, cap_end=True,
+                     name="spinner"), group_name="nose_spinner")
+
+    def chord(r):
+        u = r / R
+        return 26.0 * (1.0 - 0.55 * (u - 0.45) ** 2 / 0.30) \
+            * (1.0 - 0.88 * max(0.0, u - 0.86) / 0.14)
+
+    def beta(r):
+        return math.degrees(math.atan2(pitch_mm, 2.0 * math.pi * max(r, 12.0)))
+
+    for b in range(m["blades"]):
+        blade = build_blade(20.0, R, chord, beta, 0.10, 0.045, f"nblade_{b}")
+        if deployed:
+            blade.apply(M.rot_x(360.0 * b / m["blades"] + 78.0))
+        else:
+            # a tractor folder lays its blades AFT along the fuselage
+            blade.apply(M.rot_z(78.0))
+            blade.apply(M.rot_x(180.0 * b + 90.0))
+        blade.apply(M.translate(-m["spinner_len"] * 0.45, 0.0, 0.0))
+        pod.merge(blade, group_name=f"nose_blade_{b}")
+    return pod, (-m["spinner_len"] * 0.45, 0.0, 0.0)
+
+
 def build_motor_pod(deployed=True):
     m = C.MOTOR
     ang = m["deployed_angle"] if deployed else m["stowed_angle"]
@@ -577,22 +631,37 @@ def assemble(deployed=True):
     a.merge(wing, group_name="wing_stbd")
     a.merge(wing.mirrored_y(), group_name="wing_port")
     a.merge(build_fuselage(), group_name="fuselage")
-    a.merge(build_blister(C.FUSELAGE["dorsal_spine"], True, "dorsal_spine"),
-            group_name="dorsal_spine")
-    a.merge(build_blister(_ventral_table(), False, "ventral_fairing"),
-            group_name="ventral_fairing")
-    a.merge(build_turret(), group_name="sensor_turret")
+    # The spine and the keel fairing exist ONLY to swallow the retractable
+    # pods. Delete the pods and they are pure drag, so they go too.
+    if OPTS["spine"]:
+        a.merge(build_blister(C.FUSELAGE["dorsal_spine"], True, "dorsal_spine"),
+                group_name="dorsal_spine")
+    if OPTS["ventral"]:
+        a.merge(build_blister(_ventral_table(), False, "ventral_fairing"),
+                group_name="ventral_fairing")
+    if OPTS["turret"]:
+        a.merge(build_turret(), group_name="sensor_turret")
     vt = build_vtail()
     a.merge(vt, group_name="vtail_stbd")
     a.merge(vt.mirrored_y(), group_name="vtail_port")
-    mp, mhub = build_motor_pod(deployed)
-    a.merge(mp, group_name="motor_pod")
-    if C.RAT_MOUNT == "mast":
-        rp, rhub = build_mast_pod(deployed)
-    else:
-        rp, rhub = build_rat_pod(deployed)
-    a.merge(rp, group_name="rat_pod")
-    a.merge(build_solar_cells(), group_name="solar_cells")
+
+    mhub = rhub = (0.0, 0.0, 0.0)
+    if OPTS["motor"] == "pylon":
+        mp, mhub = build_motor_pod(deployed)
+        a.merge(mp, group_name="motor_pod")
+    elif OPTS["motor"] == "nose":
+        mp, mhub = build_nose_motor(deployed)
+        a.merge(mp, group_name="nose_motor")
+
+    if OPTS["turbine"]:
+        if C.RAT_MOUNT == "mast":
+            rp, rhub = build_mast_pod(deployed)
+        else:
+            rp, rhub = build_rat_pod(deployed)
+        a.merge(rp, group_name="rat_pod")
+
+    if OPTS["solar"]:
+        a.merge(build_solar_cells(), group_name="solar_cells")
     return a, props, mhub, rhub
 
 

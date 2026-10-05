@@ -48,6 +48,7 @@ Full working in [docs/ANALYSIS.md](docs/ANALYSIS.md) §5.5.
 | [docs/DESIGN.md](docs/DESIGN.md) | The design plan — configuration, aerodynamics, structure, energy, mechanisms, autonomy, payload, flight test, risks |
 | [docs/ANALYSIS.md](docs/ANALYSIS.md) | Every computed number, generated from source |
 | [docs/VERTICAL_MAST.md](docs/VERTICAL_MAST.md) | VDM-1 — the telescoping vertical deployment mast and its micro linear actuator |
+| [docs/VARIANTS.md](docs/VARIANTS.md) | Airframe variants — plans-built glider and nose-motor versions at 2.0 m and 2.5 m |
 | [docs/PLANS.md](docs/PLANS.md) | Printable 1:1 build plans, tiled for A4 |
 | [docs/FLIGHT_ANALYSIS.md](docs/FLIGHT_ANALYSIS.md) | Flight log analysis — graphs, a fitted drag polar, and predictions from real flight data |
 | [docs/BUILD_MANUAL.md](docs/BUILD_MANUAL.md) | Bill of materials and construction sequence |
@@ -119,6 +120,7 @@ and the detection performance all regenerate consistently.
 | `tools/build_model.py` | Lofted airframe, deployable pods, solar cell layout |
 | `tools/analysis.py` | Drag build-up, polar, turbine physics, clear-sky solar model, mission simulation, stability, wing beam, LWIR detection |
 | `tools/mast.py` | VDM-1 sizing: stroke, stage count, drive loads, actuator selection, resonance |
+| `tools/variants.py` | Builds the plans-based variants (no retractable pods) at any geometric scale |
 | `tools/plans.py` | Printable A4 build plans: tiled 1:1 templates, aerofoil sections, formers, DXF |
 | `tools/pdf.py` | Minimal vector PDF writer (exact page sizes, so prints come out 1:1) |
 | `tools/flightlog.py` | Log readers: ArduPilot .BIN, ArduPilot .log, or any CSV |
