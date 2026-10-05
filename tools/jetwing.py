@@ -44,15 +44,37 @@ G = 9.80665
 # configuration
 # ==========================================================================
 
+# PUBLISHED Jetwing figures (planeprint.com, via search -- the site itself is
+# blocked by this session's egress policy, so these come from indexed copy):
+#
+#   span            1270 mm standard wing / 2060 mm BIG WING
+#   flight weight   860 to 1750 g
+#   wing loading    28 to 48 g/dm2
+#   power           EDF 70 mm on 4S, or glider
+#   channels        4/6, four flaps, so butterfly/crow braking
+#   variants        with or without a steerable rudder; the rudder version
+#                   has "integrated vector control"
+#   printing        200 x 200 x 200 mm cube, LW-PLA plus PLA
+#
+# The wing AREAS below are not published. They are chosen so that all four
+# published numbers fall out exactly:
+#
+#   standard 24.6 dm2 ->  860 g = 35.0 g/dm2,  1180 g = 48.0 g/dm2
+#   big      36.5 dm2 -> 1022 g = 28.0 g/dm2,  1750 g = 48.0 g/dm2
+#
+# and so both wings share one 260 mm root chord, which a modular kit with a
+# common fuselage joint has to do. Everything else -- sweep, taper, section,
+# CG -- is designed here, not copied. See docs/JETWING.md.
+
 JW = {
     "name": "JW-1",
     # --- planform (half-wing, y from centreline) ---
-    "span": 1500.0,            # the "larger wing" build
-    "root_chord": 340.0,
-    "tip_chord": 150.0,
+    "span": 2060.0,            # the BIG WING
+    "root_chord": 260.0,       # shared with the standard wing: modular joint
+    "tip_chord": 94.4,         # gives 36.5 dm2 at 2060 mm
     "sweep_le": 24.0,          # deg
     "dihedral": 2.0,           # deg, mild
-    "washout_tip": -3.0,       # deg, nose-down at the tip. Set by the trim solve.
+    "washout_tip": -2.2,       # deg, nose-down at the tip. Set by the trim solve.
     "centre_frac": 0.17,       # fraction of semi-span blended into the pod
 
     # --- section ---
@@ -63,53 +85,40 @@ JW = {
     "target_cm": 0.006,        # section Cm about c/4, positive = nose-up
 
     # --- winglets ---
-    "winglet_h": 135.0,
+    "winglet_h": 150.0,
     "winglet_cant": 72.0,      # deg from horizontal
     "winglet_sweep": 38.0,
     "winglet_taper": 0.45,
 
-    # --- fin ---
-    "fin_h": 165.0,
-    "fin_root": 190.0,
-    "fin_tip": 85.0,
-    "fin_sweep": 42.0,
-    "fin_x": 0.30,             # fraction of root chord, fin LE position
+    # --- fin: ONE fin, sitting behind the EDF nozzle so the rudder works in
+    #     the efflux. That is the "integrated vector control" variant. ---
+    "fin_h": 185.0,
+    "fin_root": 170.0,
+    "fin_tip": 78.0,
+    "fin_sweep": 40.0,
+    "rudder_frac": 0.38,
 
-    # --- pod and motor ---
-    "pod_len": 520.0,
-    "pod_w": 86.0,
-    "pod_h": 92.0,
-    "prop_dia": 178.0,         # 7 x 4 pusher
-    "spinner": 32.0,
+    # --- EDF fuselage ---
+    "pod_len": 620.0,
+    "pod_w": 96.0,
+    "pod_h": 104.0,
+    "fan_dia": 50.0,           # the 50 mm unit asked for (kit calls for 70)
+    "fan_hub": 26.0,
+    "fan_x": 0.615,            # fan face, fraction of pod length
+    "nozzle_dia": 40.5,        # 90% of fan swept area, hub gone
+    "inlet_dia": 30.9,         # each of two side inlets, 1.05 FSA total
+    "inlet_x": 0.30,
+    "duct_z": -6.0,            # duct axis below the pod datum
 
-    # --- elevons ---
-    "elevon_y0": 0.34, "elevon_y1": 0.96, "elevon_chord": 0.28,
+    # --- four flaps: inboard pair brake, outboard pair roll. Both pairs
+    #     mix into pitch, which is what gives butterfly/crow. ---
+    "flap_y0": 0.16, "flap_y1": 0.52,
+    "ail_y0": 0.55, "ail_y1": 0.95,
+    "flap_chord": 0.26,
     "pod_datum": -5.0,         # pod nose-down vs the root chord, so the body
-                               # looks level at the 6.5 deg trim attitude
-    # --- thrust-vectoring tail (VT-1). See tools/vectortail.py for the
-    #     sizing: every number below is an output of that analysis. ---
-    "vt": False,
-    "vt_boom_y": 108.0,        # just outside the blade tip
-    "vt_boom_od": 9.0,
-    "vt_boom_bond": 70.0,      # socketed forward of the wing TE
-    "vt_arm": 98.0,            # stab LE aft of the disc = 0.55 prop diameters
-    "vt_stab_span": 216.0,
-    "vt_stab_chord": 78.0,
-    "vt_stab_t": 0.09,
-    "vt_elev_frac": 0.40,
-    "vt_fin_up": 96.0,         # rudder runs the symmetric +/-96 only
-    "vt_fin_dn": 140.0,        # deeper, so it guards the propeller on landing
-    "vt_fin_chord": 78.0,
-    "vt_rud_frac": 0.40,
-    # LE sweep applied as a CONSTANT-CHORD shear, so planform area, aspect
-    # ratio and every number in tools/vectortail.py are untouched.
-    "vt_fin_sweep": 15.0,
-    "vt_stab_sweep": 12.0,
-    "vt_incidence": -5.74,     # zero tail load at trim -> no throttle coupling
-    "vt_z": -8.0,              # thrust axis
-
-    # --- mass, for an LW-PLA print ---
-    "mass_g": 880.0,
+                               # looks level at the trim attitude
+    # --- mass, EDF fuselage + big wing, from the budget in jw_analysis.py ---
+    "mass_g": 1180.0,
     "static_margin": 0.075,
 }
 
@@ -444,16 +453,10 @@ def assemble(cfg=JW, motor=True):
     a.merge(w, group_name="wing_stbd")
     a.merge(w.mirrored_y(), group_name="wing_port")
     a.merge(build_pod(cfg), group_name="pod")
-    # The dorsal fin sits almost on the CG and earns V_v 0.0005. With the
-    # vectoring tail fitted it is deleted; the cruciform does the job at a
-    # real arm. See tools/vectortail.py.
-    if not cfg.get("vt"):
-        a.merge(build_fin(cfg), group_name="fin")
+    a.merge(build_fin(cfg), group_name="fin")
     if motor:
         a.merge(build_pusher(cfg), group_name="pusher")
     a.merge(build_elevon_lines(cfg), group_name="elevons")
-    if cfg.get("vt"):
-        a.merge(build_vector_tail(cfg), group_name="vector_tail")
     return a
 
 
@@ -507,10 +510,8 @@ def report(sp):
     return "\n".join(L)
 
 
-VARIANTS = [("jetwing-1500", 1500.0, "larger wing", False),
-            ("jetwing-1200", 1200.0, "standard wing", False),
-            ("jetwing-1500-vt", 1500.0, "larger wing, vectoring tail", True),
-            ("jetwing-1200-vt", 1200.0, "standard wing, vectoring tail", True)]
+VARIANTS = [("jetwing-1500", 1500.0, "larger wing"),
+            ("jetwing-1200", 1200.0, "standard wing")]
 
 
 def main():
@@ -519,27 +520,14 @@ def main():
     os.makedirs(out, exist_ok=True)
     os.makedirs(img, exist_ok=True)
     import render as R
-    for (name, span, desc, vt) in VARIANTS:
+    for (name, span, desc) in VARIANTS:
         cfg = dict(JW)
-        cfg["vt"] = vt
         k = span / JW["span"]
         for key in ("span", "root_chord", "tip_chord", "winglet_h", "fin_h",
                     "fin_root", "fin_tip", "pod_len", "pod_w", "pod_h",
-                    "prop_dia", "spinner", "vt_boom_y", "vt_boom_od",
-                    "vt_boom_bond", "vt_arm", "vt_stab_span", "vt_stab_chord",
-                    "vt_fin_up", "vt_fin_dn", "vt_fin_chord", "vt_z"):
+                    "prop_dia", "spinner"):
             cfg[key] = JW[key] * k
         cfg["mass_g"] = JW["mass_g"] * k ** 2.6     # printed shell, mostly area
-        vvt = None
-        if vt:
-            # the ventral depth is whatever guards the propeller at THIS
-            # size, solved in tools/vectortail.py -- never a scaled constant
-            import vectortail as VTL
-            vvt = dict(VTL.VT)
-            for key in ("boom_y", "boom_od", "boom_bond", "stab_chord",
-                        "fin_h", "fin_chord", "z_thrust"):
-                vvt[key] = VTL.VT[key] * k
-            cfg["vt_fin_dn"] = VTL.stations(cfg, vvt)["h_lower"]
         sp = spec(cfg)
         M.write_stl(sp["mesh"], os.path.join(out, name + ".stl"), f"JW-1 {name}")
         M.write_obj(sp["mesh"], os.path.join(out, name + ".obj"), name)
@@ -547,148 +535,8 @@ def main():
                  path=os.path.join(img, name + ".png"))
         print(f"\n== {name}  ({desc}) ==")
         print(report(sp))
-        if vt:
-            vcfg = dict(cfg)
-            vst = VTL.stations(vcfg, vvt)
-            br = VTL.solve_branch(vcfg, vvt, vst, 0.0)
-            bal = VTL.balance(vcfg, vvt, True, vst)
-            P = VTL.prop_guard(vst, vvt, vcfg)
-            print(f"  + VT-1 tail: arm {vst['l_t']:.0f} mm, V_h "
-                  f"{VTL.surfaces(vst, vvt)['V_h']:.4f}, V_v "
-                  f"{VTL.surfaces(vst, vvt)['V_v']:.4f}")
-            print(f"    tail incidence {br['i_t']:+.2f} deg -> zero throttle "
-                  f"trim coupling; trims CL {br['CL']:.3f} at "
-                  f"{br['v_trim']:.2f} m/s")
-            print(f"    AUW {bal['auw']:.0f} g, CG {bal['cg_from_nose']:.0f} mm "
-                  f"from nose, pack at {bal['batt_from_nose']:.0f} mm")
-            print(f"    ventral {vst['h_lower']:.0f} mm deep -> propeller clears "
-                  f"the ground by {P['clearance']:+.1f} mm")
-            cl = VTL.closes(vcfg, vvt, vst)
-            print("    balance CLOSES" if cl["ok"] else
-                  f"    balance DOES NOT CLOSE: needs a {cl['pack_needed']:.0f} g pack "
-                  f"(+{cl['extra_pack']:.0f} g) or {cl['nose_ext']:.0f} mm more nose")
     print(f"\nwrote models/jetwing/ and docs/img/jetwing/")
 
-
-
-# ==========================================================================
-# VT-1 thrust-vectoring tail
-# ==========================================================================
-
-def vt_geom(cfg=JW):
-    """Stations the vectoring tail hangs off. Mirrors tools/vectortail.py."""
-    x_prop = cfg["pod_len"] * 0.98 - 5.0
-    x_vane = x_prop + cfg["vt_arm"]
-    y = cfg["vt_boom_y"]
-    x_te = le_at(y, cfg) + chord_at(y, cfg)
-    return {"x_prop": x_prop, "x_vane": x_vane, "y": y, "z": cfg["vt_z"],
-            "x_te": x_te,
-            "boom0": x_te - cfg["vt_boom_bond"],
-            "boom1": x_vane + 0.35 * cfg["vt_stab_chord"],
-            "c_s": cfg["vt_stab_chord"], "c_f": cfg["vt_fin_chord"]}
-
-
-def _tube(x0, x1, y, z, od, npts=16, name="t"):
-    r = od / 2.0
-    secs = [[(x, y + p[1], z + p[2]) for p in M.circle(r, npts=npts)]
-            for x in (x0, x1)]
-    return M.loft(secs, cap_start=True, cap_end=True, name=name)
-
-
-def _scribe(rows, axis, standoff, name="s"):
-    """Thin raised strip marking a hinge line. axis 2 = offset in z (a
-    horizontal surface), axis 1 = offset in y (a vertical one)."""
-    out = M.Mesh(name)
-    for side in (1.0, -1.0):
-        pts = []
-        for r in rows:
-            q = []
-            for p in r:
-                p = list(p)
-                p[axis] += side * standoff
-                q.append(tuple(p))
-            pts.append(q)
-        m = M.Mesh("x")
-        idx = [[m.add_vertex(q) for q in r] for r in pts]
-        for i in range(len(idx) - 1):
-            if side > 0:
-                m.quad(idx[i][0], idx[i][1], idx[i + 1][1], idx[i + 1][0])
-            else:
-                m.quad(idx[i][0], idx[i + 1][0], idx[i + 1][1], idx[i][1])
-        out.merge(m, group_name=name)
-    return out
-
-
-def build_vt_booms(cfg=JW):
-    g = vt_geom(cfg)
-    out = M.Mesh("vt_booms")
-    for sign in (1.0, -1.0):
-        out.merge(_tube(g["boom0"], g["boom1"], sign * g["y"], g["z"],
-                        cfg["vt_boom_od"]), group_name="vt_booms")
-    return out
-
-
-def build_vt_stab(cfg=JW, width=2.0, standoff=0.4):
-    """Horizontal vane: pitch. Set to carry zero load at trim."""
-    g = vt_geom(cfg)
-    up, lo = AF.naca4(0.0, 0.3, cfg["vt_stab_t"], n_per_side=26)
-    loop = AF.closed_loop(up, lo, te_gap=0.005)
-    half = cfg["vt_stab_span"] / 2.0
-    c = g["c_s"]
-    sw = math.tan(math.radians(cfg["vt_stab_sweep"]))
-    secs = [_place(loop, c, g["x_vane"] + abs(y) * sw, y, g["z"],
-                   cfg["vt_incidence"])
-            for y in (-half, half)]
-    out = M.loft(secs, cap_start=True, cap_end=True, name="vt_stab")
-    # elevator hinge line
-    hx = 1.0 - cfg["vt_elev_frac"]
-    rows = []
-    for y in (-half, half):
-        row = [_place([(xc, 0.0)], c, g["x_vane"] + abs(y) * sw, y, g["z"],
-                      cfg["vt_incidence"])[0]
-               for xc in (hx - width / 2 / c, hx + width / 2 / c)]
-        rows.append(row)
-    t = AF._thickness(hx, cfg["vt_stab_t"]) * c
-    out.merge(_scribe(rows, 2, t + standoff, "vt_elevator"),
-              group_name="vt_elevator")
-    return out
-
-
-def build_vt_fin(cfg=JW, width=2.0, standoff=0.4):
-    """Vertical vane: yaw above, propeller guard below."""
-    g = vt_geom(cfg)
-    up, lo = AF.naca4(0.0, 0.3, cfg["vt_stab_t"], n_per_side=26)
-    loop = AF.closed_loop(up, lo, te_gap=0.005)
-    c = g["c_f"]
-    sw = math.tan(math.radians(cfg["vt_fin_sweep"]))
-    zs = (g["z"] - cfg["vt_fin_dn"], g["z"], g["z"] + cfg["vt_fin_up"])
-    secs = []
-    for z in zs:
-        pts = _place(loop, c, g["x_vane"] + abs(z - g["z"]) * sw, 0.0, 0.0, 0.0)
-        secs.append([(px, pz, z) for (px, _py, pz) in pts])
-    out = M.loft(secs, cap_start=True, cap_end=True, name="vt_fin")
-    # rudder hinge, symmetric span only
-    hx = 1.0 - cfg["vt_rud_frac"]
-    rows = []
-    for z in (g["z"] - cfg["vt_fin_up"], g["z"], g["z"] + cfg["vt_fin_up"]):
-        row = []
-        for xc in (hx - width / 2 / c, hx + width / 2 / c):
-            p = _place([(xc, 0.0)], c,
-                       g["x_vane"] + abs(z - g["z"]) * sw, 0.0, 0.0, 0.0)[0]
-            row.append((p[0], p[2], z))
-        rows.append(row)
-    t = AF._thickness(hx, cfg["vt_stab_t"]) * c
-    out.merge(_scribe(rows, 1, t + standoff, "vt_rudder"),
-              group_name="vt_rudder")
-    return out
-
-
-def build_vector_tail(cfg=JW):
-    out = M.Mesh("vector_tail")
-    out.merge(build_vt_booms(cfg), group_name="vt_booms")
-    out.merge(build_vt_stab(cfg), group_name="vt_stab")
-    out.merge(build_vt_fin(cfg), group_name="vt_fin")
-    return out
 
 if __name__ == "__main__":
     main()

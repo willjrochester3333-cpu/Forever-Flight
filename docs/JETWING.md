@@ -101,16 +101,3 @@ Everything is in the `JW` dict:
 ```
 
 Change a value and the geometry, trim solution, CG and spec sheet all follow.
-
-## Thrust-vectoring tail
-
-The JW-1 can be built with a cruciform tail in the propeller slipstream instead
-of the dorsal fin — see [VECTOR_TAIL.md](VECTOR_TAIL.md). It gives 1.9× the
-elevon pitch authority at hand-launch speed, adds the rudder the JW-1 never had,
-guards the pusher propeller on landing, and lowers the trim speed from 10.2 to
-8.4 m/s. It costs 54 g, 2.5 % of best-glide sink, and a nose-bay rebuild to move
-the pack 72 mm forward.
-
-Set `cfg["vt"] = True`, or build the `jetwing-1500-vt` / `jetwing-1200-vt`
-variants. The analysis found that the dorsal fin it replaces was earning
-V_v = 0.0005 — effectively nothing.
