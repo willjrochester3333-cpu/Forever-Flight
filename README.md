@@ -49,6 +49,7 @@ Full working in [docs/ANALYSIS.md](docs/ANALYSIS.md) §5.5.
 | [docs/ANALYSIS.md](docs/ANALYSIS.md) | Every computed number, generated from source |
 | [docs/VERTICAL_MAST.md](docs/VERTICAL_MAST.md) | VDM-1 — the telescoping vertical deployment mast and its micro linear actuator |
 | [docs/JETWING.md](docs/JETWING.md) | JW-1 — a swept flying wing in the Jetwing configuration, with the tailless trim solved |
+| [docs/VECTOR_TAIL.md](docs/VECTOR_TAIL.md) | VT-1 — a cruciform tail in the propeller slipstream: 1.9× the elevons at launch speed, and a rudder the JW-1 never had |
 | [docs/VARIANTS.md](docs/VARIANTS.md) | Airframe variants — plans-built glider and nose-motor versions at 2.0 m and 2.5 m |
 | [docs/PLANS.md](docs/PLANS.md) | Printable 1:1 build plans, tiled for A4 |
 | [docs/FLIGHT_ANALYSIS.md](docs/FLIGHT_ANALYSIS.md) | Flight log analysis — graphs, a fitted drag polar, and predictions from real flight data |
@@ -122,6 +123,7 @@ and the detection performance all regenerate consistently.
 | `tools/analysis.py` | Drag build-up, polar, turbine physics, clear-sky solar model, mission simulation, stability, wing beam, LWIR detection |
 | `tools/mast.py` | VDM-1 sizing: stroke, stage count, drive loads, actuator selection, resonance |
 | `tools/jetwing.py` | Swept flying wing: reflexed section tuned by thin-aerofoil theory, strip-theory trim and CG solve, geometry, export |
+| `tools/vectortail.py` | Thrust-vectoring tail: calibrated propeller model, slipstream development, vane authority, throttle/trim coupling, mass and balance |
 | `tools/variants.py` | Builds the plans-based variants (no retractable pods) at any geometric scale |
 | `tools/plans.py` | Printable A4 build plans: tiled 1:1 templates, aerofoil sections, formers, DXF |
 | `tools/pdf.py` | Minimal vector PDF writer (exact page sizes, so prints come out 1:1) |
