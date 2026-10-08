@@ -1,55 +1,93 @@
-# A basic plane, in Blender
+# Planes in Blender
 
-![iso](../docs/img/blender/plane-iso.png)
+![Jetwing](../docs/img/blender/jetwing-iso.png)
 
 ```
-blender/basic_plane.py      the model
-blender/render_preview.py   camera, lights, previews, saves the .blend
-blender/basic_plane.blend   ready to open
+blender/jetwing.py          the swept flying wing (2060 mm BIG WING)
+blender/jetwing.blend       ready to open
+blender/basic_plane.py      a simple conventional trainer
+blender/basic_plane.blend
+blender/render_jetwing.py   camera, lights, previews, saves the .blend
+blender/render_preview.py   the same, for the trainer
 ```
 
-## Running it
+## Running
 
-**In Blender:** Scripting tab → Open → `basic_plane.py` → Run Script (Alt+P).
+**Any Blender version:** `blender --python blender/jetwing.py`
 
-**Headless:** `blender --background --python blender/render_preview.py`
+Opening a `.blend` directly needs **Blender 5.0+**, because the pip `bpy` that
+built them is 5.0.1. On 4.x you get a version error — run the `.py` instead,
+which works back to 2.8 and gives the identical model.
 
-**Without Blender installed:** `pip install bpy` gives you the same API as a
-plain Python module, which is how the previews here were made — no GUI, no GPU.
-Note that EEVEE needs a display, so `render_preview.py` uses Cycles on CPU.
+**No Blender at all:** `pip install bpy && python3 blender/render_jetwing.py`
+(Cycles on CPU; EEVEE needs a display.)
 
-## Changing it
+## Working control surfaces
 
-Everything is in the `P` dictionary at the top of `basic_plane.py`, in
-millimetres:
+Four flaps and a rudder, each a separate object whose origin sits **on its
+hinge line**, with the local axis running **along** that line. The hinges are
+swept, so they are not parallel to any world axis — the rest frame is stored
+on each object as `hinge_origin` / `hinge_basis` / `hinge_axis` (visible in
+Blender's Object Properties → Custom Properties) and the deflection is
+composed with it:
 
 ```python
-P = {
-    "span": 1200.0, "root_chord": 200.0, "tip_chord": 150.0,
-    "dihedral": 4.0, "fus_len": 900.0, "tail_span": 380.0,
-    "prop_dia": 254.0, ...
-}
+import jetwing
+jetwing.set_controls(flap=40, aileron=-32, rudder=22)   # crow brake + yaw
+jetwing.set_controls(elevator=-8)                       # both pairs up
+jetwing.set_controls()                                  # neutral
 ```
 
-Change a number and run it again. The script deletes its own collection first,
-so re-running replaces the model instead of stacking duplicates.
+`elevator` adds to **both** pairs, which is how a flying wing gets pitch out
+of surfaces that are already doing something else.
 
-## How it is put together
+![crow](../docs/img/blender/jetwing-crow.png)
 
-Nine named objects in a `Plane` collection, each with a material:
+## What is copied and what is not
+
+planeprint.com and the mirror of its assembly manual are both blocked by this
+session's network policy, so no geometry file was ever available. These
+figures are from the published specification, which search did reach:
 
 | | |
 |---|---|
-| `Fuselage` | lofted elliptical stations, subdivided and shade-smoothed |
-| `Canopy` | separate transparent object |
-| `Wing`, `Tailplane` | lofted root→tip, Mirror modifier on Y |
-| `Fin` | the same loft function with `vertical=True` |
-| `Spinner`, `Propeller` | blades lofted along the radius with real pitch, β = atan(pitch / 2πr) |
-| `GearLeg`, `Wheel`, `TailSkid` | `strut()` builds a tube between any two points |
+| span | 1270 mm standard / **2060 mm BIG WING** ← built here |
+| flight weight | 860–1750 g |
+| wing loading | 28–48 g/dm² |
+| power | EDF 70 mm on 4S, or glider |
+| channels | 4/6, **four flaps**, butterfly/crow |
+| variants | with or without a steerable rudder; the rudder version has *"integrated vector control"* |
+| printing | 200 mm cube, LW-PLA + PLA |
 
-Two helpers do most of the work: `loft()` joins rings into a tube, and
-`plate()` returns a rounded section. Swap `plate()` for a NACA generator and
-every surface becomes a real aerofoil without touching anything else.
+Wing **area** is not published. 36.5 dm² is chosen because it is the one value
+that makes all four published numbers land exactly:
 
-Surfaces use a Mirror modifier rather than mirrored geometry, so editing one
-side updates both — and the modifiers are left unapplied so they stay editable.
+```
+1022 g -> 28.0 g/dm2        1750 g -> 48.0 g/dm2
+```
+
+and it lets both wings share one 260 mm root chord, which a modular kit with a
+common fuselage joint has to do.
+
+**Sweep, taper, aerofoil and CG are published nowhere.** Those are designed
+from the aerodynamics — a reflexed section with washout so the wing trims
+itself without a tailplane — not copied. So this is a faithful model, not a
+replica. Real dimensions go straight into the `P` dictionary at the top of
+`jetwing.py`.
+
+## Structure
+
+Everything is lofted from parametric sections, so the shape is in the maths
+rather than in vertex soup:
+
+| | |
+|---|---|
+| `section()` | NACA 4-digit camber + a trailing-edge reflex term |
+| `chord_at` / `le_at` / `twist_at` | planform and washout at any station |
+| `place()` | puts a unit-chord section into 3D at a spanwise station |
+| `datum()` | one rotation applied to **vertices**, so fuselage, duct and fin share a frame |
+| `hinge_frame()` | world position and axes of a swept hinge line |
+
+`datum()` being applied to vertices rather than to objects is deliberate: a
+rotated pod and an unrotated fin drift apart and the fin ends up floating in
+mid-air, which is exactly what the first attempt did.
