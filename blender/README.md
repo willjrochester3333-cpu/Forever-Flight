@@ -43,6 +43,15 @@ of surfaces that are already doing something else.
 
 ![crow](../docs/img/blender/jetwing-crow.png)
 
+## Printing it
+
+`blender/print_parts.py` cuts the aircraft into **33 parts, all inside a
+256 mm cube and all watertight**, bores the stepped spar channel and writes
+`print/*.stl`. See [docs/PRINTING.md](../docs/PRINTING.md) for the carbon
+sizes and the assembly order.
+
+![parts](../docs/img/blender/print-parts.png)
+
 ## Dimensions, and checking them
 
 `blender/measure.py` measures the **evaluated mesh, after modifiers, in world

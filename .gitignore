@@ -4,3 +4,4 @@ __pycache__/
 reports/
 __pycache__/
 *.blend1
+print/*.stl

@@ -66,6 +66,71 @@ FIXED = {
 # lifting line
 # ==========================================================================
 
+def ll_setup(b, c_root, taper, twist_tip, a0=2.0 * math.pi, n_terms=24,
+             twist_power=1.3):
+    """Factor the span-loading problem once.
+
+    The system matrix depends only on the PLANFORM; the right-hand side is
+    linear in angle of attack. So solve two unit cases -- one for incidence,
+    one for the built-in twist -- and every angle afterwards is a vector
+    combination instead of another Gaussian elimination:
+
+        A . X1 = mu sin(th)                 (unit incidence)
+        A . X2 = mu sin(th) . twist(th)     (the twist, on its own)
+        coef(alpha) = radians(alpha - alpha_L0) . X1  +  X2
+
+    Only odd terms are kept: the loading is symmetric, so the even ones are
+    zero by construction and including them only makes the matrix singular.
+    """
+    m = n_terms
+    ns = [2 * i + 1 for i in range(m)]
+    thetas = [math.pi * (i + 1) / (2 * m + 1) for i in range(m)]
+    S = b * c_root * (1 + taper) / 2.0
+
+    A, r1, r2 = [], [], []
+    for th in thetas:
+        f = abs(-(b / 2.0) * math.cos(th)) / (b / 2.0)
+        c = c_root * (1.0 - (1.0 - taper) * f)
+        mu = c * a0 / (4.0 * b)
+        r1.append(mu * math.sin(th))
+        r2.append(mu * math.sin(th) *
+                  math.radians(twist_tip * f ** twist_power))
+        A.append([math.sin(n * th) * (n * mu + math.sin(th)) for n in ns])
+
+    # Stations for the local lift coefficient, over the RIGHT HALF ONLY.
+    # y = -(b/2) cos(th) with th in [0, pi] sweeps the whole span, so
+    # f = |cos th| runs 1 -> 0 -> 1: not monotonic, and it covers every
+    # station twice. Fine for taking a maximum, useless for integrating a
+    # shear or a bending moment along the span. th in (pi/2, pi) gives f
+    # increasing from root to tip, once.
+    st = []
+    for i in range(39):
+        th = math.pi / 2.0 + (math.pi / 2.0) * (i + 1) / 40.0
+        f = abs(math.cos(th))
+        c = c_root * (1.0 - (1.0 - taper) * f)
+        st.append((f, c, [math.sin(n * th) for n in ns]))
+    return {"ns": ns, "X1": _solve(A, r1), "X2": _solve(A, r2),
+            "AR": b * b / S, "S": S, "b": b, "stations": st}
+
+
+def ll_at(su, alpha, alpha_L0=0.0):
+    """Evaluate the pre-factored wing at one angle of attack."""
+    u = math.radians(alpha - alpha_L0)
+    coef = [u * a + c for (a, c) in zip(su["X1"], su["X2"])]
+    a1 = coef[0]
+    sum_n = sum(n * coef[j] ** 2 for j, n in enumerate(su["ns"]))
+    return {"CL": math.pi * su["AR"] * a1,
+            "CDi": math.pi * su["AR"] * sum_n,
+            "e": (a1 * a1 / sum_n) if sum_n > 1e-12 else 0.0,
+            "coef": coef}
+
+
+def ll_local(su, coef):
+    """Local lift coefficient along the span: cl = 4b/c . sum A_n sin(n th)."""
+    return [(f, 4.0 * su["b"] * sum(coef[j] * sn[j] for j in range(len(coef))) / c)
+            for (f, c, sn) in su["stations"]]
+
+
 def lifting_line(b, c_root, taper, twist_tip, a0=2.0 * math.pi, n_terms=24,
                  alpha=5.0, alpha_L0=0.0, twist_power=1.3):
     """Fourier solution of the span loading.
@@ -74,43 +139,10 @@ def lifting_line(b, c_root, taper, twist_tip, a0=2.0 * math.pi, n_terms=24,
     Only odd terms are kept: the loading is symmetric, so the even ones are
     zero by construction and including them only makes the matrix singular.
     """
-    m = n_terms
-    ns = [2 * i + 1 for i in range(m)]            # 1, 3, 5, ...
-    thetas = [math.pi * (i + 1) / (2 * m + 1) for i in range(m)]
-    S = b * c_root * (1 + taper) / 2.0 / 2.0      # full-span area, mm2
-    S *= 2.0 / 2.0
-    S = b * c_root * (1 + taper) / 2.0
-
-    A = [[0.0] * m for _ in range(m)]
-    rhs = [0.0] * m
-    for i, th in enumerate(thetas):
-        y = -(b / 2.0) * math.cos(th)
-        f = abs(y) / (b / 2.0)
-        c = c_root * (1.0 - (1.0 - taper) * f)
-        mu = c * a0 / (4.0 * b)
-        tw = twist_tip * f ** twist_power
-        rhs[i] = mu * math.sin(th) * math.radians(alpha + tw - alpha_L0)
-        for j, n in enumerate(ns):
-            A[i][j] = math.sin(n * th) * (n * mu + math.sin(th))
-
-    coef = _solve(A, rhs)
-    a1 = coef[0]
-    AR = b * b / S
-    CL = math.pi * AR * a1
-    sum_n = sum(n * coef[j] ** 2 for j, n in enumerate(ns))
-    CDi = math.pi * AR * sum_n
-    e = (a1 * a1 / sum_n) if sum_n > 0 else 0.0
-
-    # local lift coefficient, cl = 4b/c * sum A_n sin(n th)
-    local = []
-    for th in [math.pi * (i + 1) / 40.0 for i in range(39)]:
-        y = -(b / 2.0) * math.cos(th)
-        f = abs(y) / (b / 2.0)
-        c = c_root * (1.0 - (1.0 - taper) * f)
-        g = sum(coef[j] * math.sin(n * th) for j, n in enumerate(ns))
-        local.append((f, 4.0 * b * g / c))
-    return {"CL": CL, "CDi": CDi, "e": e, "AR": AR, "S": S, "local": local,
-            "A": coef}
+    su = ll_setup(b, c_root, taper, twist_tip, a0, n_terms, twist_power)
+    r = ll_at(su, alpha, alpha_L0)
+    return {**r, "AR": su["AR"], "S": su["S"],
+            "local": ll_local(su, r["coef"]), "A": r["coef"]}
 
 
 def _solve(A, b):
@@ -185,12 +217,12 @@ def performance(c_root, taper, twist, b=None, alpha_L0=0.0, duct=True):
     AR = b * b / S_mm2
     mac = (2.0 / 3.0) * c_root * (1 + taper + taper * taper) / (1 + taper)
 
+    su = ll_setup(b, c_root, taper, twist)
     best = {"ld": 0.0}
     sink_best = {"sink": 1e9}
     for i in range(36):
         alpha = -2.0 + 0.5 * i
-        ll = lifting_line(b, c_root, taper, twist, alpha=alpha,
-                          alpha_L0=alpha_L0)
+        ll = ll_at(su, alpha, alpha_L0)
         CL = ll["CL"]
         if CL < 0.08 or CL > FIXED["cl_max"]:
             continue
@@ -207,8 +239,7 @@ def performance(c_root, taper, twist, b=None, alpha_L0=0.0, duct=True):
             sink_best = {"sink": sink, "CL": CL, "V": V, "ld": ld}
 
     # stall margin at the tip, evaluated near CL_max
-    ll = lifting_line(b, c_root, taper, twist, alpha=11.0, alpha_L0=alpha_L0)
-    loc = ll["local"]
+    loc = ll_local(su, ll_at(su, 11.0, alpha_L0)["coef"])
     peak = max(cl for (_f, cl) in loc)
     tip = max(cl for (f, cl) in loc if f > 0.90)
     peak_at = max(loc, key=lambda p: p[1])[0]
