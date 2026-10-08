@@ -71,7 +71,7 @@ if __name__ == "__main__":
     JW.set_controls()
     centre, size = extent()
     for (nm, az, el) in (("jetwing-iso", 128, 24), ("jetwing-plan", 180, 88),
-                         ("jetwing-side", 90, 2), ("jetwing-rear", 35, 18)):
+                         ("jetwing-side", 90, 2), ("jetwing-rear", 28, 10)):
         for ob in list(bpy.data.objects):
             if ob.type in ('CAMERA', 'LIGHT'):
                 bpy.data.objects.remove(ob, do_unlink=True)
@@ -84,6 +84,23 @@ if __name__ == "__main__":
             bpy.data.objects.remove(ob, do_unlink=True)
     camera(centre, size, 128, 24)
     render(os.path.join(OUT, "jetwing-crow.png"))
+
+    # close on the tail, to show the fan down the nozzle
+    JW.set_controls()
+    for ob in list(bpy.data.objects):
+        if ob.type in ('CAMERA', 'LIGHT'):
+            bpy.data.objects.remove(ob, do_unlink=True)
+    tail = Vector((0.60, 0.0, 0.052))
+    camera(tail, 0.30, 6, 7)
+    # a lamp at the camera, or the inside of the duct is just a black hole
+    ld = bpy.data.lights.new("Bore", 'SPOT')
+    ld.energy = 260; ld.spot_size = math.radians(42); ld.shadow_soft_size = 0.02
+    lo = bpy.data.objects.new("Bore", ld)
+    cam = bpy.context.scene.camera
+    lo.location = cam.location
+    lo.rotation_euler = cam.rotation_euler
+    bpy.context.scene.collection.objects.link(lo)
+    render(os.path.join(OUT, "jetwing-edf.png"), 1400, 1000)
 
     JW.set_controls()
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(ROOT, "blender", "jetwing.blend"))

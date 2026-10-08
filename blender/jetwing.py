@@ -75,9 +75,19 @@ P = {
     "pod_h":          104.0,
     "pod_datum":       -5.0,     # deg nose-down vs the root chord
     "duct_z":          -6.0,
-    "nozzle_dia":      40.5,     # 90% of a 50 mm fan's swept area
+    # --- 50 mm EDF, QF2611 5000KV, FIXED (nothing retracts) ---
+    #     every number here is an output of tools/edf.py
+    "fan_dia":         50.0,
+    "fan_hub":         26.0,
+    "fan_x":            0.62,    # fan face, fraction of pod length
+    "fan_blades":        12,
+    "stator_vanes":       7,     # prime against 12, so no blade-passing tone
+    "nozzle_dia":      40.5,     # 0.90 x fan swept area: the thrust/efficiency pick
     "inlet_dia":       31.0,
     "inlet_x":          0.30,
+    "lip_radius":       3.1,     # 10% of inlet diameter; a sharp lip separates
+    "motor_len":       32.0,
+    "tailcone_len":    58.0,
 
     # --- single fin, rudder sitting behind the nozzle ---
     "fin_h":          185.0,
@@ -479,28 +489,110 @@ def pod(coll):
     return obj_from("Fuselage", datum(v), f, "Airframe", coll, smooth=True)
 
 
-def duct(coll):
-    """Nozzle, and the two side inlets that feed the fan."""
-    L = P["pod_len"]
-    r = P["nozzle_dia"] / 2.0
-    z = P["duct_z"]
-    secs = [[(x, p[1], p[2]) for p in circle(r, 22, cz=z)]
-            for x in (0.615 * L, L + 6.0)]
-    v, f = loft(secs, cap_start=False, cap_end=False)
-    noz = obj_from("Nozzle", datum(v), f, "Duct", coll, smooth=True)
+def blade_set(x0, r_hub, r_tip, n, chord, beta_hub, beta_tip, z, thick=1.1,
+              skew=0.0):
+    """A ring of n blades.
 
+    At radius r the chord lies along  cos(beta) * tangential + sin(beta) * axial,
+    so beta is the stagger measured from the plane of rotation: 90 deg would be
+    a blade pointing straight down the duct, 0 deg a flat paddle. Real EDF
+    rotors sit steep at the hub and flatten toward the tip, because the blade
+    sees the vector sum of axial flow and its own rotational speed, and that
+    gets faster the further out you go.
+    """
+    verts, faces = [], []
+    steps = [r_hub + (r_tip - r_hub) * i / 3.0 for i in range(4)]
+    for b in range(n):
+        th = 2.0 * math.pi * b / n
+        st, ct = math.sin(th), math.cos(th)
+        base = len(verts)
+        for r in steps:
+            f = (r - r_hub) / max(1e-6, r_tip - r_hub)
+            beta = math.radians(beta_hub + (beta_tip - beta_hub) * f)
+            cb, sb = math.cos(beta), math.sin(beta)
+            c = chord * (1.0 - 0.18 * f)
+            # chord direction and a normal to it, both unit
+            dx, dy, dz = sb, -cb * st, cb * ct
+            nx, ny, nz = -cb, -sb * st, sb * ct
+            for side in (-1.0, 1.0):
+                for u in (-c / 2.0, c / 2.0):
+                    verts.append((x0 + u * dx + f * skew + side * thick / 2 * nx,
+                                  r * ct + u * dy + side * thick / 2 * ny,
+                                  z + r * st + u * dz + side * thick / 2 * nz))
+        for i in range(len(steps) - 1):
+            a0, a1 = base + i * 4, base + (i + 1) * 4
+            faces += [[a0, a0 + 1, a1 + 1, a1], [a0 + 2, a1 + 2, a1 + 3, a0 + 3],
+                      [a0, a1, a1 + 2, a0 + 2], [a0 + 1, a0 + 3, a1 + 3, a1 + 1]]
+        faces.append([base, base + 2, base + 3, base + 1])
+        e = base + (len(steps) - 1) * 4
+        faces.append([e + 1, e + 3, e + 2, e])
+    return verts, faces
+
+
+def tube(stations, z, npts=28, cap_start=False, cap_end=False):
+    """Axisymmetric shell from (x, radius) stations."""
+    return loft([[(x, p[1], p[2]) for p in circle(r, npts, cz=z)]
+                 for (x, r) in stations], cap_start, cap_end)
+
+
+def duct(coll):
+    """The fixed EDF installation: bellmouth inlets, a gentle diffuser, the
+    fan, a stator to take the swirl back out, and a converging nozzle.
+
+    Nothing retracts. That costs drag every second the fan is off, so the
+    whole shape is arranged to make that number small -- see tools/edf.py.
+    """
+    L, z = P["pod_len"], P["duct_z"]
+    x_fan = P["fan_x"] * L
+    r_fan = P["fan_dia"] / 2.0
+    r_hub = P["fan_hub"] / 2.0
+    r_noz = P["nozzle_dia"] / 2.0
+
+    # --- duct barrel: diffuser in, constant at the fan, converging out ---
+    barrel = [(x_fan - 150.0, r_fan * 0.88), (x_fan - 40.0, r_fan),
+              (x_fan + 46.0, r_fan), (L + 6.0, r_noz)]
+    v, f = tube(barrel, z)
+    obj_from("Duct", datum(v), f, "Duct", coll, smooth=True)
+
+    # --- rotor ---
+    v, f = blade_set(x_fan, r_hub - 1.0, r_fan - 0.7, P["fan_blades"],
+                     15.0, 58.0, 33.0, z)
+    hv, hf = tube([(x_fan - 16.0, r_hub * 0.55), (x_fan - 7.0, r_hub * 0.95),
+                   (x_fan + 9.0, r_hub)], z, cap_start=True, cap_end=True)
+    o = len(v)
+    v += hv
+    f += [[i + o for i in face] for face in hf]
+    obj_from("Fan", datum(v), f, "Trim", coll, smooth=True)
+
+    # --- stator: straightens the swirl the rotor put in, which is thrust you
+    #     have already paid for. Seven vanes against twelve blades. ---
+    v, f = blade_set(x_fan + 30.0, r_hub + 0.5, r_fan - 0.7,
+                     P["stator_vanes"], 20.0, 74.0, 74.0, z, thick=1.4)
+    obj_from("Stator", datum(v), f, "Duct", coll, smooth=True)
+
+    # --- motor can and a closing tailcone, so the wake does not just stop ---
+    v, f = tube([(x_fan + 12.0, r_hub), (x_fan + P["motor_len"], r_hub),
+                 (x_fan + P["motor_len"] + P["tailcone_len"] * 0.45, r_hub * 0.72),
+                 (x_fan + P["motor_len"] + P["tailcone_len"], r_hub * 0.10)],
+                z, cap_start=True, cap_end=True)
+    obj_from("Motor", datum(v), f, "Trim", coll, smooth=True)
+
+    # --- inlets: bellmouth lip, then a 1.2 deg diffuser aft ---
     ri = P["inlet_dia"] / 2.0
+    lip = P["lip_radius"]
     x0 = P["inlet_x"] * L
     secs = []
-    for (dx, scale, dy, dz) in ((-6.0, 1.00, 0.485, 15.0),
-                                (38.0, 0.90, 0.455, 11.0),
-                                (82.0, 0.62, 0.395, 6.0)):
-        secs.append([(x0 + dx, P["pod_w"] * dy + p[1] * 0.78 * scale,
-                      z + dz + p[2] * scale) for p in circle(ri, 20)])
+    for (dx, rr, dy, dz) in ((-10.0, ri + lip * 0.55, 0.492, 15.6),
+                             (-4.0, ri + lip * 0.95, 0.489, 15.2),
+                             (2.0, ri, 0.484, 14.6),
+                             (40.0, ri * 0.98, 0.452, 10.8),
+                             (86.0, ri * 0.80, 0.392, 5.6)):
+        secs.append([(x0 + dx, P["pod_w"] * dy + p[1] * 0.80,
+                      z + dz + p[2]) for p in circle(rr, 22)])
     v, f = loft(secs, cap_start=False, cap_end=False)
     inl = obj_from("Inlet", datum(v), f, "Duct", coll, smooth=True, mirror=True)
     inl.modifiers["Mirror"].mirror_object = centreline()
-    return noz, inl
+    return inl
 
 
 def fin(coll):

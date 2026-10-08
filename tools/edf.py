@@ -148,3 +148,134 @@ def jet_at(x_mm, exit_dia, Ve, V_inf, spread=0.08):
     r = re + spread * max(0.0, x_mm)
     v = max(V_inf, Ve * re / r)
     return {"R": r, "V": v, "q": 0.5 * RHO * v * v, "Re": re}
+
+
+# ==========================================================================
+# designing the installation for efficiency
+# ==========================================================================
+
+def froude(V, Ve):
+    """Ideal propulsive efficiency, 2V/(V+Ve). This is the whole problem with
+    a small fan: it has to throw a FAST jet to make thrust from a small area,
+    and efficiency is set by how badly the jet speed overshoots flight speed."""
+    return 2.0 * V / (V + Ve) if (V + Ve) > 0 else 0.0
+
+
+def nozzle_sweep(V=16.0, f=FAN, ratios=(0.80, 0.85, 0.90, 0.95, 1.00, 1.05)):
+    """Exit area is the biggest lever on efficiency. A bigger nozzle means a
+    slower, fatter jet: less thrust per watt lost to kinetic energy, more of
+    the power going into the aircraft. The limit is the fan -- open the
+    nozzle too far and it unloads, overspeeds and stalls its blades."""
+    rows = []
+    for r in ratios:
+        g = dict(f); g["nozzle_fsa"] = r
+        a = areas(g)
+        p_elec = min(g["p_max"], g["cells_4s"] * g["i_max"])
+        d = duct(p_elec * g["eta_motor"], V, a["ae_m2"], g["eta_fan_real"])
+        rows.append({"ratio": r, "ae": a["ae"], "dia": a["exit_dia"],
+                     "T": d["T"], "Ve": d["Ve"], "eta_p": d["eta_p"],
+                     "froude": froude(V, d["Ve"])})
+    return rows
+
+
+def capture(V, f=FAN, realistic=True):
+    """Free-stream area of the streamtube the inlet swallows.
+
+    If that tube is WIDER than the inlet, the flow accelerates in and nothing
+    spills. If it is narrower, the inlet is too big for the speed and the
+    excess spills round the lip, which costs drag. The crossover speed is
+    where an inlet stops being free."""
+    a = areas(f)
+    r = operate(1.0, V, "4s", f, realistic)
+    mdot = r["mdot"]
+    tube = mdot / (RHO * V) if V > 0.1 else float("inf")
+    v_cross = mdot / (RHO * a["ai_m2"])
+    return {"mdot": mdot, "tube_mm2": tube * 1e6 if V > 0.1 else None,
+            "inlet_mm2": a["ai"], "ratio": (tube * 1e6 / a["ai"]) if V > 0.1 else None,
+            "v_crossover": v_cross, "v_inlet": mdot / (RHO * a["ai_m2"])}
+
+
+def cold_drag(V, f=FAN, K=1.0, blocked_cd=0.5):
+    """What the duct costs when the fan is OFF -- which on a soaring aircraft
+    is most of the flight, and is the number that decides whether a fixed
+    installation is worth it.
+
+    Freewheeling: the duct still passes air, but with a total-pressure loss,
+    so it leaves slower than it arrived and the momentum deficit is drag.
+        Ve = V / sqrt(1+K),  D = mdot (V - Ve)
+    Braked: nothing passes, the inlet stagnates and spills, so it is plain
+    form drag on the capture area.
+    """
+    a = areas(f)
+    ve = V / math.sqrt(1.0 + K)
+    mdot = RHO * a["ae_m2"] * ve
+    free = mdot * (V - ve)
+    stop = blocked_cd * 0.5 * RHO * V * V * a["ai_m2"]
+    return {"freewheel": free, "braked": stop, "Ve": ve, "K": K}
+
+
+def diffuser(f=FAN, n_inlets=2, duct_len=150.0):
+    """Internal duct angles. Above about 7 degrees of half-angle a diffuser
+    separates and you lose the pressure recovery you built the duct for."""
+    a = areas(f)
+    d_in = a["inlet_dia_each"]
+    d_fan = f["dia"]
+    # two round inlets merging into one annulus: equivalent single diameter
+    d_eq = math.sqrt(n_inlets) * d_in
+    half = math.degrees(math.atan2((d_fan - d_eq) / 2.0, duct_len))
+    # nozzle contraction, fan face to exit
+    noz_half = math.degrees(math.atan2((d_fan - a["exit_dia"]) / 2.0, 90.0))
+    return {"d_inlet": d_in, "d_equiv": d_eq, "d_fan": d_fan,
+            "diffuser_half_deg": half, "nozzle_half_deg": noz_half,
+            "lip_radius": 0.10 * d_in}
+
+
+def efficiency_report(V=16.0, f=FAN):
+    L = []
+    L.append(f"== 50 mm EDF installation, designed for cruise at {V:.0f} m/s ==")
+    L.append("")
+    r = operate(1.0, V, "4s", f)
+    L.append(f"As drawn: {r['T'] / G * 1000:.0f} g thrust, jet {r['Ve']:.1f} m/s, "
+             f"propulsive efficiency {r['eta_p'] * 100:.1f}%")
+    L.append(f"  ideal (Froude) ceiling at that jet speed is "
+             f"{froude(V, r['Ve']) * 100:.1f}% -- the fan is small, so the jet")
+    L.append(f"  overshoots flight speed {r['Ve'] / V:.1f}x and most of the power "
+             f"goes into the air, not the aircraft.")
+    L.append("")
+    L.append("NOZZLE AREA, the biggest lever")
+    L.append("  Ae/FSA   dia    thrust    jet    eta_p   Froude")
+    for row in nozzle_sweep(V, f):
+        L.append(f"   {row['ratio']:.2f}   {row['dia']:5.1f}  {row['T'] / G * 1000:5.0f} g "
+                 f"{row['Ve']:6.1f}  {row['eta_p'] * 100:5.1f}%  {row['froude'] * 100:5.1f}%")
+    L.append("  Opening the nozzle trades static thrust for efficiency. 0.90 is")
+    L.append("  the usual compromise and is what is built; going past 1.00 unloads")
+    L.append("  the fan into blade stall, so it is not free.")
+    L.append("")
+    L.append("INLET")
+    c = capture(V, f)
+    d = diffuser(f)
+    L.append(f"  swallows {c['mdot'] * 1000:.0f} g/s; at {V:.0f} m/s that is a "
+             f"free-stream tube {c['ratio']:.1f}x the inlet area,")
+    L.append(f"  so the flow accelerates IN and nothing spills. Spillage would only")
+    L.append(f"  start above {c['v_crossover']:.0f} m/s, which this aircraft never sees.")
+    L.append(f"  inlet velocity {c['v_inlet']:.0f} m/s -> the lip has to turn still air")
+    L.append(f"  hard, so round it to {d['lip_radius']:.1f} mm. A sharp lip separates and")
+    L.append(f"  that is where cheap installations lose 10-20% of their thrust.")
+    L.append("")
+    L.append("INTERNAL ANGLES")
+    L.append(f"  two {d['d_inlet']:.1f} mm inlets -> {d['d_equiv']:.1f} mm equivalent "
+             f"-> {d['d_fan']:.0f} mm fan")
+    L.append(f"  diffuser half-angle {d['diffuser_half_deg']:.1f} deg "
+             f"(keep under 7, or it separates)")
+    L.append(f"  nozzle half-angle {d['nozzle_half_deg']:.1f} deg, converging, "
+             f"which is always safe")
+    L.append("")
+    L.append("WHAT IT COSTS WHEN THE FAN IS OFF")
+    for v in (10.0, 14.0, 18.0):
+        cd = cold_drag(v, f)
+        L.append(f"  {v:4.1f} m/s: freewheeling {cd['freewheel']:.3f} N, "
+                 f"braked {cd['braked']:.3f} N")
+    L.append("  A soaring aircraft glides far more than it motors, so this is the")
+    L.append("  number that decides the installation. LET THE FAN FREEWHEEL --")
+    L.append("  set the ESC to coast, not brake. A stopped fan is a flat plate.")
+    return "\n".join(L)

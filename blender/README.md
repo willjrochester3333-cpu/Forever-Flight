@@ -43,6 +43,17 @@ of surfaces that are already doing something else.
 
 ![crow](../docs/img/blender/jetwing-crow.png)
 
+## The EDF
+
+Fixed 50 mm unit, fully faired, nothing retracting: bellmouth inlets with a
+3.1 mm lip radius, a 1.2 deg diffuser, a 12-blade rotor, a 7-vane stator to
+take the swirl back out, motor can with a closing tailcone, and a 40.5 mm
+converging nozzle. Sizing and the reasoning are in
+[docs/EDF.md](../docs/EDF.md); every dimension is an output of
+`tools/edf.py`.
+
+![EDF](../docs/img/blender/jetwing-edf.png)
+
 ## What is copied and what is not
 
 planeprint.com and the mirror of its assembly manual are both blocked by this
