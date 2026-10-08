@@ -93,6 +93,7 @@ JW = {
     "fin_root": 170.0,
     "fin_tip": 78.0,
     "fin_sweep": 40.0,
+    "fin_x": 505.0,            # absolute, mm: the fin sits behind the nozzle
     "rudder_frac": 0.38,
 
     # --- EDF fuselage ---
@@ -361,7 +362,7 @@ def build_fin(cfg=JW):
     up, lo = AF.naca4(0.0, 0.3, 0.08, n_per_side=26)
     loop = AF.closed_loop(up, lo, te_gap=0.006)
     sw = math.tan(math.radians(cfg["fin_sweep"]))
-    x0 = cfg["fin_x"] * cfg["root_chord"]
+    x0 = cfg["fin_x"]          # absolute now, not a fraction of root chord
     secs = []
     for i in range(8):
         t = i / 7.0
@@ -403,6 +404,19 @@ def build_pusher(cfg=JW):
 
 
 def build_elevon_lines(cfg=JW, width=2.4, standoff=0.45):
+    """Scribed hinge lines. This airframe has FOUR surfaces, not two elevons,
+    so it draws both pairs."""
+    out = M.Mesh("elevons")
+    for (a, b) in ((cfg["flap_y0"], cfg["flap_y1"]),
+                   (cfg["ail_y0"], cfg["ail_y1"])):
+        c = dict(cfg)
+        c["elevon_chord"] = cfg["flap_chord"]
+        c["elevon_y0"], c["elevon_y1"] = a, b
+        out.merge(_one_hinge_line(c, width, standoff), group_name="elevons")
+    return out
+
+
+def _one_hinge_line(cfg, width=2.4, standoff=0.45):
     refl = _reflex(cfg)
     _loop, up, lo = section_points(1.0, cfg["camber"], cfg["camber_pos"], refl,
                                    cfg["reflex_start"], cfg["thickness"])
@@ -451,8 +465,9 @@ def assemble(cfg=JW, motor=True):
     a.merge(w.mirrored_y(), group_name="wing_port")
     a.merge(build_pod(cfg), group_name="pod")
     a.merge(build_fin(cfg), group_name="fin")
-    if motor:
-        a.merge(build_pusher(cfg), group_name="pusher")
+    # The pusher propeller is gone: this airframe is an EDF, and the fan,
+    # duct and inlets are built in blender/jetwing.py. Nothing here needs
+    # them -- this module exists for the trim and stability solve.
     a.merge(build_elevon_lines(cfg), group_name="elevons")
     return a
 

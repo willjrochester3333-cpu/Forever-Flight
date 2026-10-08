@@ -118,6 +118,9 @@ something it then has to fill back in.
 
 ## Assembly order
 
+The full build manual, with the CG, throws and pre-flight checks, is in
+[ASSEMBLY.md](ASSEMBLY.md). In short:
+
 1. Thread **Spar A** through both root sections, dry, and check the panels
    sit at the same incidence before any glue.
 2. Slide **Spar B** into A from outboard, through sections 2 and 3.
