@@ -45,7 +45,19 @@ of surfaces that are already doing something else.
 
 ## Printing it
 
-`blender/print_parts.py` cuts the aircraft into **33 parts, all inside a
+**`jetwing-parts.blend` — open this one for the parts.** All 33 pieces, each
+standing in its print orientation on z = 0, laid out on a grid and labelled
+with its name and size, plus an A1 build volume drawn to one side for scale.
+The assembled aircraft is in an `Assembled` collection, hidden; tick it back
+on in the Outliner to see it whole.
+
+To get a single part out: select it, **File > Export > STL**, tick *Selection
+Only*. Or skip Blender entirely and use the ready-made STLs in `print/`.
+
+![parts](../docs/img/blender/parts-blend.png)
+
+
+`blender/print_parts.py` is what cuts the aircraft into **33 parts, all inside a
 256 mm cube and all watertight**, bores the stepped spar channel and writes
 `print/*.stl`. See [docs/PRINTING.md](../docs/PRINTING.md) for the carbon
 sizes and the assembly order.

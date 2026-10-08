@@ -5,7 +5,11 @@ python3 blender/print_parts.py      cuts the model up and writes print/*.stl
 python3 tools/spar.py               the spar sizing behind the bore diameters
 ```
 
-![parts](img/blender/print-parts.png)
+![parts](img/blender/parts-blend.png)
+
+Open **`blender/jetwing-parts.blend`** to browse them: every part in print
+orientation, named and labelled with its size. Or go straight to the STLs in
+`print/`.
 
 **33 parts, every one inside 256 mm, every one watertight.**
 
