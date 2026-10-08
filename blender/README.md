@@ -43,6 +43,19 @@ of surfaces that are already doing something else.
 
 ![crow](../docs/img/blender/jetwing-crow.png)
 
+## Dimensions, and checking them
+
+`blender/measure.py` measures the **evaluated mesh, after modifiers, in world
+space** and compares it with the specification, exiting non-zero if anything
+is out. `blender/render_dims.py` draws the dimensions onto a plan view, reading
+them off the measured geometry rather than off the parameters -- so if the two
+ever disagree, the drawing shows the truth.
+
+![dimensions](../docs/img/blender/jetwing-dims-plan.png)
+
+Tip chord and washout are outputs of `tools/optimise.py`, which solves the
+span loading by lifting-line theory. See [docs/OPTIMISATION.md](../docs/OPTIMISATION.md).
+
 ## The EDF
 
 Fixed 50 mm unit, fully faired, nothing retracting: bellmouth inlets with a

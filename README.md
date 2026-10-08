@@ -48,6 +48,8 @@ Full working in [docs/ANALYSIS.md](docs/ANALYSIS.md) §5.5.
 | [docs/DESIGN.md](docs/DESIGN.md) | The design plan — configuration, aerodynamics, structure, energy, mechanisms, autonomy, payload, flight test, risks |
 | [docs/ANALYSIS.md](docs/ANALYSIS.md) | Every computed number, generated from source |
 | [docs/VERTICAL_MAST.md](docs/VERTICAL_MAST.md) | VDM-1 — the telescoping vertical deployment mast and its micro linear actuator |
+| [docs/OPTIMISATION.md](docs/OPTIMISATION.md) | Lifting-line optimisation of the wing, and measuring the built mesh against its specification |
+| [docs/EDF.md](docs/EDF.md) | The fixed 50 mm EDF installation: nozzle area, inlet lip, and what a duct costs when the fan is off |
 | [docs/JETWING.md](docs/JETWING.md) | JW-1 — a swept flying wing in the Jetwing configuration, with the tailless trim solved |
 | [docs/VARIANTS.md](docs/VARIANTS.md) | Airframe variants — plans-built glider and nose-motor versions at 2.0 m and 2.5 m |
 | [docs/PLANS.md](docs/PLANS.md) | Printable 1:1 build plans, tiled for A4 |
@@ -121,6 +123,7 @@ and the detection performance all regenerate consistently.
 | `tools/build_model.py` | Lofted airframe, deployable pods, solar cell layout |
 | `tools/analysis.py` | Drag build-up, polar, turbine physics, clear-sky solar model, mission simulation, stability, wing beam, LWIR detection |
 | `tools/mast.py` | VDM-1 sizing: stroke, stage count, drive loads, actuator selection, resonance |
+| `tools/optimise.py` | Lifting-line span loading, drag buildup, constrained search over taper, chord and washout |
 | `tools/jetwing.py` | Swept flying wing: reflexed section tuned by thin-aerofoil theory, strip-theory trim and CG solve, geometry, export |
 | `tools/variants.py` | Builds the plans-based variants (no retractable pods) at any geometric scale |
 | `tools/plans.py` | Printable A4 build plans: tiled 1:1 templates, aerofoil sections, formers, DXF |

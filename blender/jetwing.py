@@ -20,10 +20,13 @@ IS below comes from their published specification, which search did reach:
                     has "integrated vector control"
     printing        200 mm cube, LW-PLA plus PLA
 
-The wing AREA is not published, so it is chosen here as 36.5 dm2, which is
-the one value that makes all four published numbers land exactly:
-
-    1022 g -> 28.0 g/dm2        1750 g -> 48.0 g/dm2
+The wing AREA is not published. It started at 36.5 dm2, the one value that
+makes all four published numbers land exactly, but optimisation moved it:
+at a 94.4 mm tip the outboard wing runs at Reynolds 48,700, below where a
+low-Re aerofoil still works. The tip is now 106.1 mm and the area 37.5 dm2,
+which at the built mass is 29.8 g/dm2 -- inside the published 28-48 envelope.
+A tip that works was worth more than hitting the envelope endpoints exactly.
+Tip chord and washout are OUTPUTS of tools/optimise.py, not guesses.
 
 Sweep, taper, aerofoil and CG are NOT published anywhere. Those are designed
 from the aerodynamics, not copied, and they are the reason this is a faithful
@@ -51,10 +54,10 @@ P = {
     # --- planform: the BIG WING ---
     "span":          2060.0,
     "root_chord":     260.0,
-    "tip_chord":       94.4,     # -> 36.5 dm2
+    "tip_chord":      106.1,     # optimised: see tools/optimise.py
     "sweep_le":        24.0,     # deg
     "dihedral":         2.0,
-    "washout_tip":     -2.2,     # deg nose-down at the tip; tailless trim
+    "washout_tip":    -1.98,     # deg nose-down at the tip; tailless trim
 
     # --- section: reflexed, so the wing trims itself ---
     "thickness":        0.105,

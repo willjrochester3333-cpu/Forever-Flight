@@ -56,25 +56,22 @@ G = 9.80665
 #                   has "integrated vector control"
 #   printing        200 x 200 x 200 mm cube, LW-PLA plus PLA
 #
-# The wing AREAS below are not published. They are chosen so that all four
-# published numbers fall out exactly:
-#
-#   standard 24.6 dm2 ->  860 g = 35.0 g/dm2,  1180 g = 48.0 g/dm2
-#   big      36.5 dm2 -> 1022 g = 28.0 g/dm2,  1750 g = 48.0 g/dm2
-#
-# and so both wings share one 260 mm root chord, which a modular kit with a
-# common fuselage joint has to do. Everything else -- sweep, taper, section,
-# CG -- is designed here, not copied. See docs/JETWING.md.
+# The wing AREAS below are not published. The root chord is held at 260 mm so
+# both wings share one joint, which a modular kit has to do. Tip chord and
+# washout are OUTPUTS of tools/optimise.py, which solves the span loading by
+# lifting-line theory; it found the original 94.4 mm tip ran at Reynolds
+# 48,700, below where a low-Re section still works. Everything else -- sweep,
+# section, CG -- is designed here, not copied. See docs/JETWING.md.
 
 JW = {
     "name": "JW-1",
     # --- planform (half-wing, y from centreline) ---
     "span": 2060.0,            # the BIG WING
     "root_chord": 260.0,       # shared with the standard wing: modular joint
-    "tip_chord": 94.4,         # gives 36.5 dm2 at 2060 mm
+    "tip_chord": 106.1,        # optimised: see tools/optimise.py
     "sweep_le": 24.0,          # deg
     "dihedral": 2.0,           # deg, mild
-    "washout_tip": -2.2,       # deg, nose-down at the tip. Set by the trim solve.
+    "washout_tip": -1.98,      # deg, nose-down at the tip. Set by the trim solve.
     "centre_frac": 0.17,       # fraction of semi-span blended into the pod
 
     # --- section ---
