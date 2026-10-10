@@ -587,6 +587,17 @@ def apply_mirror(ob):
 
 
 def export(parts):
+    """Write the STLs, clearing the directory first.
+
+    Without the clear, a renamed or re-split part leaves its old file behind
+    and the folder quietly accumulates stale geometry -- three dead parts
+    from earlier splits were sitting in there, and a bundle built from the
+    directory shipped 40 files for a 37-part aircraft.
+    """
+    if os.path.isdir(OUT):
+        for f in os.listdir(OUT):
+            if f.endswith(".stl"):
+                os.remove(os.path.join(OUT, f))
     os.makedirs(OUT, exist_ok=True)
     rows = []
     for ob in parts:
