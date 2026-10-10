@@ -56,6 +56,30 @@ SPAR = {
     "dowel": 3.0, "dowel_depth": 14.0,
 }
 
+# 9 g servos (SG90 class). The body is 22.5 x 11.8 x 22.7 and it lies with
+# its output shaft SPANWISE, so the arm sweeps in a chordwise-vertical plane
+# and drives the surface directly. That costs only 11.8 mm of section depth
+# instead of 22.7, which is the whole reason it fits.
+#
+# The bay sits at 45% chord -- just aft of the spar at 30%, and close enough
+# to maximum thickness to have room. At the hinge line itself there is only
+# 11-15 mm of section, so a servo buried under the control surface does NOT
+# fit; it is driven by a pushrod instead.
+SERVO = {
+    "body": (22.5, 11.8, 22.7),     # chordwise, vertical, spanwise
+    "clear": 1.3,                   # all round the body
+    "chord_frac": 0.45,
+    "stations": {"flap": 300.0, "aileron": 570.0},
+    "pushrod_bore": 3.4,            # guide for a 2 mm rod in a 3 mm tube
+    "horn_frac": 0.735,             # just ahead of the hinge at 0.74
+    "wire_bore": 5.0,
+    "wire_frac": 0.52,
+    "wire_to": 620.0,               # outboard end of the loom run
+    "hatch_t": 1.8,
+    "hatch_lip": 3.5,
+    "boss_h": 7.0, "boss_d": 5.4, "boss_hole": 1.9,
+}
+
 # spanwise cuts, as fractions of the semi-span. Five per side keeps every
 # section inside 256 mm of span with room for the joint faces.
 CUTS = [0.0, 0.200, 0.400, 0.600, 0.800, 1.0]
@@ -71,6 +95,21 @@ def spar_point(y, frac):
     p = JW.place([(frac, z)], c, JW.le_at(y), y,
                  y * math.tan(math.radians(JW.P["dihedral"])), JW.twist_at(y))[0]
     return Vector(p)
+
+
+def skin_point(y, xf, lower=True):
+    """A point on the wing skin at a station and chord fraction."""
+    P = JW.P
+    m, pp, q = P["camber"], P["camber_pos"], P["reflex_start"]
+    t, refl = P["thickness"], P["reflex"]
+    yt = JW.thickness(xf, t)
+    yc, dy = JW.camber(xf, m, pp, refl, q)
+    th = math.atan(dy)
+    pt = ((xf + yt * math.sin(th), yc - yt * math.cos(th)) if lower
+          else (xf - yt * math.sin(th), yc + yt * math.cos(th)))
+    dih = math.tan(math.radians(P["dihedral"]))
+    return Vector(JW.place([pt], JW.chord_at(y), JW.le_at(y), y,
+                           abs(y) * dih, JW.twist_at(y))[0])
 
 
 def cylinder(a, b, dia, name, coll, npts=28):
@@ -225,6 +264,117 @@ def fits(d):
 # ==========================================================================
 # the work
 # ==========================================================================
+
+def servo_bay(ob, y, work, S=SERVO):
+    """Pocket for one servo, opening through the LOWER skin.
+
+    Cut as an axis-aligned box: the section's chord already lies along x, and
+    the local twist and dihedral are both about 2 degrees, which over a 23 mm
+    box is a couple of tenths of a millimetre. Not worth a rotated cutter.
+    """
+    L, T, H = S["body"]
+    cl = S["clear"]
+    lo_skin = skin_point(y, S["chord_frac"], lower=True)
+    up_skin = skin_point(y, S["chord_frac"], lower=False)
+    x0 = lo_skin.x - (L + 2 * cl) / 2.0
+    x1 = lo_skin.x + (L + 2 * cl) / 2.0
+    y0, y1 = y - (H + 2 * cl) / 2.0, y + (H + 2 * cl) / 2.0
+    z0 = lo_skin.z - 12.0                      # well clear, below the skin
+    z1 = lo_skin.z + T + 2 * cl
+    if z1 > up_skin.z - 2.0:                   # never breach the upper skin
+        z1 = up_skin.z - 2.0
+    c = box((x0, y0, z0), (x1, y1, z1), "bay", work)
+    boolean(ob, c)
+    bpy.data.objects.remove(c, do_unlink=True)
+
+    # pushrod guide, from the bay aft to just ahead of the hinge
+    a = skin_point(y, S["chord_frac"] + 0.02, lower=True) + Vector((0, 0, 6.0))
+    b = skin_point(y, S["horn_frac"], lower=True) + Vector((0, 0, -4.0))
+    g = cylinder(a, b, S["pushrod_bore"], "rod", work)
+    boolean(ob, g)
+    bpy.data.objects.remove(g, do_unlink=True)
+    return ob
+
+
+def wire_channel(ob, y0, y1, work, S=SERVO):
+    """Spanwise bore for the servo loom, so wiring threads through the
+    joints instead of being fished through them."""
+    a = skin_point(y0, S["wire_frac"], lower=True)
+    b = skin_point(y1, S["wire_frac"], lower=True)
+    mid_a = (a + skin_point(y0, S["wire_frac"], lower=False)) / 2.0
+    mid_b = (b + skin_point(y1, S["wire_frac"], lower=False)) / 2.0
+    c = cylinder(mid_a, mid_b, S["wire_bore"], "loom", work)
+    boolean(ob, c)
+    bpy.data.objects.remove(c, do_unlink=True)
+    return ob
+
+
+def servo_hatch(y, name, coll, S=SERVO):
+    """The cover, as a separate printed part.
+
+    The servo screws to THIS on the bench, then the whole assembly drops into
+    the bay. Fishing a servo into a closed pocket through its own hole is the
+    worst job on a build like this, and it makes the servo unserviceable
+    afterwards.
+    """
+    L, T, H = S["body"]
+    cl, lip, th = S["clear"], S["hatch_lip"], S["hatch_t"]
+    xf0 = S["chord_frac"] - (L / 2.0 + cl + lip) / JW.chord_at(y)
+    xf1 = S["chord_frac"] + (L / 2.0 + cl + lip) / JW.chord_at(y)
+    yy0, yy1 = y - (H / 2.0 + cl + lip), y + (H / 2.0 + cl + lip)
+
+    nx, ny = 9, 5
+    outer, inner = [], []
+    for i in range(ny):
+        yv = yy0 + (yy1 - yy0) * i / (ny - 1)
+        ro, ri = [], []
+        for j in range(nx):
+            xf = xf0 + (xf1 - xf0) * j / (nx - 1)
+            p = skin_point(yv, xf, lower=True)
+            ro.append(tuple(p))
+            ri.append((p.x, p.y, p.z + th))
+        outer.append(ro)
+        inner.append(ri)
+
+    verts, faces = [], []
+    def grid(g):
+        base = len(verts)
+        for row in g:
+            verts.extend(row)
+        return base
+    bo, bi = grid(outer), grid(inner)
+    for i in range(ny - 1):
+        for j in range(nx - 1):
+            a0 = bo + i * nx + j
+            faces.append([a0, a0 + 1, a0 + nx + 1, a0 + nx])
+            b0 = bi + i * nx + j
+            faces.append([b0, b0 + nx, b0 + nx + 1, b0 + 1])
+    for j in range(nx - 1):                       # fore and aft edges
+        faces.append([bo + j, bo + nx * (0) + j + 1,
+                      bi + j + 1, bi + j])
+        o = nx * (ny - 1)
+        faces.append([bo + o + j + 1, bo + o + j, bi + o + j, bi + o + j + 1])
+    for i in range(ny - 1):                       # side edges
+        faces.append([bo + i * nx, bo + (i + 1) * nx,
+                      bi + (i + 1) * nx, bi + i * nx])
+        e = nx - 1
+        faces.append([bo + (i + 1) * nx + e, bo + i * nx + e,
+                      bi + i * nx + e, bi + (i + 1) * nx + e])
+
+    me = bpy.data.meshes.new(name)
+    me.from_pydata([Vector(p) * JW.MM for p in verts], [], faces)
+    me.validate(verbose=False)
+    me.update()
+    ob = bpy.data.objects.new(name, me)
+    coll.objects.link(ob)
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(me)
+    bm.free()
+    return ob
+
 
 def bore_wing(wing, work):
     """Stepped spar bore, plus the anti-rotation rod across the centre."""
@@ -499,6 +649,18 @@ def main():
                          SPAR["anti_od"] + SPAR["fit"], "anti", work)
             boolean(ob, c)
             bpy.data.objects.remove(c, do_unlink=True)
+
+        # servo bay, where one falls inside this section
+        for (nm, ys) in SERVO["stations"].items():
+            if y0 <= ys < y1:
+                servo_bay(ob, ys, work)
+                right.append(servo_hatch(ys, f"hatch_{nm}_R", parts_coll))
+
+        # loom channel: every section inboard of the outermost servo
+        w0, w1 = max(y0, 0.0), min(y1, SERVO["wire_to"])
+        if w1 - w0 > 2.0:
+            wire_channel(ob, w0 - 12.0, w1 + 12.0, work)
+
         right.append(ob)
 
     # --- control surfaces, in printable lengths ---

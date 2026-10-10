@@ -5,6 +5,8 @@
 
 ![spars](img/blender/assembly-spars.png)
 
+![servo bays](img/blender/servo-bay.png)
+
 ---
 
 ## The one number that matters
@@ -45,7 +47,7 @@ two sizes and no others.
 | EDF | 50 mm 12-blade, QF2611 5000KV (fixed, non-retracting) |
 | ESC | 40 A minimum, with a **brake-off / coast** setting |
 | Battery | 4S 2200 mAh, around 190 g |
-| Servos | 5 × 9 g — four wing, one rudder |
+| Servos | 4 × 9 g SG90 (wing) + **1 × 9 g MG90S, metal gear** (rudder) |
 | Receiver | 6 channel minimum |
 
 ### Consumables
@@ -110,21 +112,66 @@ with a twist in it.
 
 ---
 
-## 2. Control surfaces
+## 2. Servos
 
-Four on the wing — two inboard flaps, two outboard ailerons — plus the rudder.
+Bays are printed in, so there is nothing to cut. Four of them: one per
+control surface, in the **lower** skin, with a matching printed hatch.
+
+| | station | in section | section depth there |
+|---|---|---|---|
+| flap servo | y = 300 mm | `wing_?2` | 21.0 mm |
+| aileron servo | y = 570 mm | `wing_?3` | 17.1 mm |
+
+**The servo lies on its side, output shaft pointing spanwise.** That way the
+arm sweeps in a chordwise-vertical plane and drives the surface directly, and
+the servo only costs 11.8 mm of section depth instead of 22.7. Mounted the
+usual way up it does not fit in this wing at all.
+
+**Why the bays are not under the control surfaces.** At the hinge line there
+is only 11–15 mm of section, and a 9 g servo needs 14.8 mm with sensible
+walls. So the bays sit at **45% chord** — just aft of the spar, close to
+maximum thickness — and a pushrod runs aft to a horn on the surface. The
+3.4 mm guide bore is printed in; use 2 mm rod inside a 3 mm tube.
+
+A 9 g servo stops fitting outboard of about y = 730, which is why the aileron
+servo sits at the inboard end of its surface rather than the middle.
+
+**The hatch is a separate part and the servo screws to it.** Fit the servo on
+the bench, then drop the whole assembly into the bay. Fishing a servo into a
+closed pocket through its own hole is the worst job on a build like this, and
+it leaves the servo unserviceable afterwards.
+
+**Loom channel.** A 5 mm bore runs spanwise at 52% chord from the aileron bay
+inboard to the root, straight through every joint, so the wiring threads
+rather than being fished. It lines up to within 0.5 mm at the worst joint.
+Thread the wires **before** you bond the sections together.
+
+### Torque
+
+| surface | worst case | needs | 9 g SG90 gives |
+|---|---|---|---|
+| aileron | 20° at 20 m/s | 0.29 kg·cm | 1.6 kg·cm ✓ |
+| flap | 40° crow at 20 m/s | 1.08 kg·cm | 1.6 kg·cm ✓ |
+| **rudder** | 25° at full throttle | **1.82 kg·cm** | **1.6 kg·cm ✗** |
+
+The rudder sits in the EDF efflux, where dynamic pressure is **3060 Pa**
+against 245 Pa outside — twelve times. A plastic-gear SG90 is undersized for
+it. Use an **MG90S**: same size, same mounting, same bay, about 2.2 kg·cm.
+
+Flap torque is worst with full crow at speed. Deploy crow on approach, around
+12 m/s, where it falls to 0.39 kg·cm — not at 20 m/s.
+
+## 3. Hinges
 
 1. Sand the hinge faces lightly. The printed gap is 3 mm each side.
-2. Tape hinges: one strip on top, surface deflected fully down; one
-   underneath, deflected fully up. That gives a hinge with no slop and no
-   gap for air to leak through.
+2. Tape hinges: one strip on top with the surface deflected fully down, one
+   underneath with it deflected fully up. No slop, no gap for air to leak
+   through.
 3. Check free movement through the whole range before the servos go in.
-4. Servo per surface, horn **in line with the hinge** — offset horns give
-   you differential you did not ask for.
+4. Horn **in line with the hinge** — an offset horn gives you differential
+   you did not ask for.
 
----
-
-## 3. Fuselage and EDF
+## 4. Fuselage and EDF
 
 1. Bond `fuselage_1` to `_2` to `_3` to `_4` nose to tail. These are shells
    with a 1.2 mm wall; use epoxy sparingly, it is all weight.
@@ -140,7 +187,7 @@ Four on the wing — two inboard flaps, two outboard ailerons — plus the rudde
 
 ---
 
-## 4. Electronics and balance
+## 5. Electronics and balance
 
 Battery goes as far forward as it will go. It is the only mass with anywhere
 useful to be, and it is how you reach the CG.
@@ -153,6 +200,7 @@ useful to be, and it is how you reach the CG.
 | ESC | 40 g |
 | 4S 2200 pack | 190 g |
 | 5 servos + RX + wiring | 57 g |
+| hatches, horns, pushrods | 12 g |
 | hardware, glue | 35 g |
 | **total** | **~1120 g** |
 
@@ -166,7 +214,7 @@ with a quarter of the mass.
 
 ---
 
-## 5. Throws
+## 6. Throws
 
 Measured at the trailing edge of each surface, at mid-span.
 
@@ -199,7 +247,7 @@ seconds.
 
 ---
 
-## 6. Before the first flight
+## 7. Before the first flight
 
 - [ ] CG at 318 mm from the nose, or 10 mm forward of it
 - [ ] Control directions checked on the aircraft, not in your head
@@ -210,7 +258,7 @@ seconds.
 - [ ] Range check with the fan running
 - [ ] Battery secured — a pack that shifts in flight moves the CG
 
-## 7. First flight
+## 8. First flight
 
 Thrust-to-weight is **0.72**, so it will not climb out vertically. It needs a
 proper launch.
