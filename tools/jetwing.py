@@ -373,36 +373,6 @@ def build_fin(cfg=JW):
     return M.loft(secs, cap_start=True, cap_end=True, name="fin")
 
 
-def build_pusher(cfg=JW):
-    import build_model as BM
-    out = M.Mesh("pusher")
-    hub_x = cfg["pod_len"] * 0.98
-    R = cfg["prop_dia"] / 2.0
-    sp = []
-    for i in range(9):
-        t = i / 8.0
-        r = (cfg["spinner"] / 2.0) * math.sqrt(max(1e-6, 1 - t * t))
-        sp.append([(hub_x + t * cfg["spinner"] * 1.2, p[1], p[2])
-                   for p in M.circle(r, npts=14, cz=-8.0)])
-    out.merge(M.loft(sp, cap_start=True, cap_end=False, name="spinner"),
-              group_name="pusher")
-
-    def chord(r):
-        u = r / R
-        return 22.0 * (1 - 0.5 * (u - 0.45) ** 2 / 0.30) \
-            * (1 - 0.85 * max(0.0, u - 0.86) / 0.14)
-
-    def beta(r):
-        return math.degrees(math.atan2(4.0 * 25.4, 2 * math.pi * max(r, 10.0)))
-
-    for b in range(2):
-        bl = BM.build_blade(14.0, R, chord, beta, 0.09, 0.04, f"pb{b}")
-        bl.apply(M.rot_x(180.0 * b + 82.0))
-        bl.apply(M.translate(hub_x - 5.0, 0.0, -8.0))
-        out.merge(bl, group_name="pusher")
-    return out
-
-
 def build_elevon_lines(cfg=JW, width=2.4, standoff=0.45):
     """Scribed hinge lines. This airframe has FOUR surfaces, not two elevons,
     so it draws both pairs."""
@@ -535,9 +505,16 @@ def main():
     for (name, span, desc) in VARIANTS:
         cfg = dict(JW)
         k = span / JW["span"]
+        # These are geometric scale renders, so the EDF scales with the
+        # airframe too -- a 56 mm pod cannot hold a 50 mm fan. A real 1200 mm
+        # build would take a smaller off-the-shelf unit, not a scaled one.
+        #
+        # prop_dia and spinner used to be in this list. They stopped existing
+        # when the airframe became an EDF, and nothing noticed because
+        # nothing ran this: main() raised KeyError on the first variant.
         for key in ("span", "root_chord", "tip_chord", "winglet_h", "fin_h",
-                    "fin_root", "fin_tip", "pod_len", "pod_w", "pod_h",
-                    "prop_dia", "spinner"):
+                    "fin_root", "fin_tip", "fin_x", "pod_len", "pod_w",
+                    "pod_h", "fan_dia", "fan_hub", "nozzle_dia", "inlet_dia"):
             cfg[key] = JW[key] * k
         cfg["mass_g"] = JW["mass_g"] * k ** 2.6     # printed shell, mostly area
         sp = spec(cfg)

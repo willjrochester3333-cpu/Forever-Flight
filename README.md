@@ -49,7 +49,7 @@ Full working in [docs/ANALYSIS.md](docs/ANALYSIS.md) §5.5.
 | [docs/ANALYSIS.md](docs/ANALYSIS.md) | Every computed number, generated from source |
 | [docs/VERTICAL_MAST.md](docs/VERTICAL_MAST.md) | VDM-1 — the telescoping vertical deployment mast and its micro linear actuator |
 | [docs/ASSEMBLY.md](docs/ASSEMBLY.md) | Build manual: CG, spars, hinges, throws, balance and the first flight |
-| [docs/PRINTING.md](docs/PRINTING.md) | Cutting it into 33 printable parts for a Bambu Lab A1, and the carbon spar that runs through them |
+| [docs/PRINTING.md](docs/PRINTING.md) | Cutting it into 30 printable parts for a Bambu Lab A2L, and the carbon spar that runs through them |
 | [docs/OPTIMISATION.md](docs/OPTIMISATION.md) | Lifting-line optimisation of the wing, and measuring the built mesh against its specification |
 | [docs/EDF.md](docs/EDF.md) | The fixed 50 mm EDF installation: nozzle area, inlet lip, and what a duct costs when the fan is off |
 | [docs/JETWING.md](docs/JETWING.md) | JW-1 — a swept flying wing in the Jetwing configuration, with the tailless trim solved |

@@ -598,18 +598,40 @@ def duct(coll):
     return inl
 
 
+def sym_section(t, x_lo, x_hi, n_surf=30, n_close=0):
+    """Symmetric section between two chord fractions, each cut end closed by a
+    deliberate straight face. RESAMPLED, not clamped.
+
+    Clamping the full section's x into the range -- which is how the fin and
+    the rudder were built -- piles every point outside it onto the cut line
+    while keeping its own thickness. The rudder therefore carried a
+    zero-width flap of surface standing proud of its own hinge face, right up
+    to maximum thickness: 314 self-intersecting face pairs in a part that
+    goes on the print plate.
+
+    The cut ends carry no interior points (n_close = 0): one edge joins the
+    two surfaces and the loft makes the face. Interior points along such an
+    edge are collinear, and a collinear run in a cap n-gon triangulates into
+    zero-area slivers, which register as self-intersections.
+    """
+    def strip(a, b):
+        return [(a[0] + (b[0] - a[0]) * (k + 1) / (n_close + 1),
+                 a[1] + (b[1] - a[1]) * (k + 1) / (n_close + 1))
+                for k in range(n_close)]
+
+    up, lo = [], []
+    for i in range(n_surf):
+        f = 0.5 * (1.0 - math.cos(math.pi * i / (n_surf - 1)))
+        x = x_lo + (x_hi - x_lo) * f
+        yt = thickness(x, t)
+        up.append((x, yt))
+        lo.append((x, -yt))
+    return up + strip(up[-1], lo[-1]) + lo[::-1] + strip(lo[0], up[0])
+
+
 def fin(coll):
     """One fin. The rudder hangs behind the nozzle, which is what the kit
     calls integrated vector control: deflect it and you deflect the jet."""
-    loop = []
-    n = 34
-    for i in range(n + 1):
-        x = 0.5 * (1 - math.cos(math.pi * i / n))
-        loop.append((x, thickness(x, 0.085)))
-    for i in range(n, -1, -1):
-        x = 0.5 * (1 - math.cos(math.pi * i / n))
-        loop.append((x, -thickness(x, 0.085)))
-
     sw = math.tan(math.radians(P["fin_sweep"]))
     hinge = 1.0 - P["rudder_frac"]
     z0 = pod_top(P["fin_x"] / P["pod_len"]) - 4.0
@@ -619,7 +641,7 @@ def fin(coll):
         for hgt in heights:
             t = hgt / P["fin_h"]
             c = P["fin_root"] + (P["fin_tip"] - P["fin_root"]) * t
-            cut = [(min(max(x, x_lo), x_hi), zz) for (x, zz) in loop]
+            cut = sym_section(0.085, x_lo, x_hi)
             pts = place(cut, c, P["fin_x"] + hgt * sw, 0.0, 0.0, 0.0)
             out.append([(px, pz, z0 + hgt) for (px, _py, pz) in pts])
         return out

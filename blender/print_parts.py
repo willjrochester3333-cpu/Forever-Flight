@@ -1,21 +1,28 @@
 #!/usr/bin/env python3
 """
-Cut the Jetwing into pieces a Bambu Lab A1 can print, and bore the spar.
+Cut the Jetwing into pieces a Bambu Lab A2L can print, and bore the spar.
 
     python3 blender/print_parts.py
     blender --background --python blender/print_parts.py
 
 BUILD VOLUME
-    256 x 256 x 256 mm. The root chord is 260 mm, so the root section does
-    not fit square on the bed at all -- it goes on diagonally, where 256 mm
-    of bed gives 362 mm. The slicer will do that for you; the check below
-    allows for it.
+    330 x 320 x 325 mm -- twice the volume of the A1 this was first cut for,
+    and, in the dimension that actually decides the part count, 325 mm of
+    height against 256.
+
+    Two things fall out of that. The root chord is 260 mm, so a root section
+    now stands SQUARE on the plate with 60 mm to spare: the A1 cut had to
+    lay it on the diagonal and trust the slicer to find that placement. And
+    a section may be 325 mm of span instead of 256, which takes the wing
+    from five sections a side to four, the ailerons from three to two, the
+    fuselage from four rings to two, and lets the winglet stay attached to
+    the outboard section instead of being a separate glued-on part.
 
 HOW THE PARTS SIT
     Wing sections print STANDING ON END, span axis vertical. That puts the
     spar bore straight up the Z axis, so it needs no support and comes out
     round, and it lays the layer lines across the chord where the skin wants
-    them. It also means the limit on a section is 256 mm of SPAN, not of
+    them. It also means the limit on a section is 325 mm of SPAN, not of
     chord.
 
 THE SPAR
@@ -44,8 +51,8 @@ import jetwing as JW
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "print")
 
-BED = 256.0
-DIAG = BED * math.sqrt(2.0) - 12.0      # usable diagonal, minus a margin
+BED = (330.0, 320.0, 325.0)     # X, Y, Z -- the A2L is not a cube
+MARGIN = 6.0                    # brim and skirt want the edge of the plate
 
 SPAR = {
     "frac": 0.30,              # chordwise position, where the section is thickest
@@ -53,7 +60,11 @@ SPAR = {
     "B_od": 8.0,  "B_from": 380.0, "B_to": 890.0,
     "fit": 0.40,               # added to diameter: a sliding fit after shrink
     "anti_od": 4.0, "anti_frac": 0.62, "anti_to": 190.0,
-    "dowel": 3.0, "dowel_depth": 14.0,
+    # Joint dowels: 4 mm rod, 22 mm long, 11 mm into each face. Up from
+    # 3 x 14 -- the sections are half again as long now, so the joint carries
+    # more bending, and a 4 mm rod in an 11 mm blind hole is still a hole a
+    # printer makes honestly.
+    "dowel": 4.0, "dowel_depth": 22.0, "dowel_fracs": (0.14, 0.60),
 }
 
 # 9 g servos (SG90 class). The body is 22.5 x 11.8 x 22.7 and it lies with
@@ -72,17 +83,26 @@ SERVO = {
     "stations": {"flap": 300.0, "aileron": 570.0},
     "pushrod_bore": 3.4,            # guide for a 2 mm rod in a 3 mm tube
     "horn_frac": 0.735,             # just ahead of the hinge at 0.74
-    "wire_bore": 5.0,
-    "wire_frac": 0.52,
+    "wire_bore": 6.0,
+    # 50% chord, not 52%. The bay's aft wall lands at 50.8% chord, so on 52%
+    # the channel only grazed it -- a 0.4 mm sliver of overlap. On 50% it runs
+    # decisively through the bay, which is what the servo lead has to do
+    # anyway: the lead leaves the servo and joins the loom in one move.
+    "wire_frac": 0.50,
     "wire_to": 620.0,               # outboard end of the loom run
     "hatch_t": 1.8,
     "hatch_lip": 3.5,
     "boss_h": 7.0, "boss_d": 5.4, "boss_hole": 1.9,
 }
 
-# spanwise cuts, as fractions of the semi-span. Five per side keeps every
-# section inside 256 mm of span with room for the joint faces.
-CUTS = [0.0, 0.200, 0.400, 0.600, 0.800, 1.0]
+# Spanwise cuts, as fractions of the semi-span. FOUR per side, 257.5 mm of
+# span each, inside the 325 mm height with 67 mm spare. Three a side would
+# want 343 mm and does not go, so four is the fewest the A2L allows.
+#
+# Equal quarters put the joints at y = 257.5, 515 and 772.5 mm. That is 30 mm
+# or more clear of both servo bays, and clear of the spar step at y = 455,
+# which is what the spacing has to miss.
+CUTS = [0.0, 0.25, 0.50, 0.75, 1.0]
 
 
 def spar_point(y, frac):
@@ -161,12 +181,35 @@ def box(lo, hi, name, coll):
 
 
 def boolean(target, cutter, op='DIFFERENCE'):
+    """Apply a boolean -- and check it actually did the cut.
+
+    The exact solver has no failure return. Handed a target it cannot reason
+    about it produces something plausible-looking, and the one thing nothing
+    downstream catches is the cutter coming back in place of the part: a 6 mm
+    tube is watertight, fits the bed and slices, so it passes every other
+    check in this file and goes in the box. Two wing sections shipped that way.
+
+    A DIFFERENCE can only remove material, so it cannot halve the face count
+    or shrink the bounding box. If it did, the solver did not do a difference.
+    """
+    before = len(target.data.polygons)
+    lo0, hi0 = bounds_of(target)
     m = target.modifiers.new("bool", 'BOOLEAN')
     m.operation = op
     m.object = cutter
     m.solver = 'EXACT'
     bpy.context.view_layer.objects.active = target
     bpy.ops.object.modifier_apply(modifier=m.name)
+    if op == 'DIFFERENCE':
+        after = len(target.data.polygons)
+        lo1, hi1 = bounds_of(target)
+        shrunk = max(max(lo1[i] - lo0[i], hi0[i] - hi1[i]) for i in range(3))
+        if after < before // 2 or shrunk > 5.0:
+            raise RuntimeError(
+                "boolean with %s collapsed %s: %d -> %d faces, bounding box "
+                "shrank %.1f mm. The solver returned something that is not "
+                "the cut -- check the target for self-intersection."
+                % (cutter.name, target.name, before, after, shrunk))
 
 
 def watertight(ob):
@@ -255,10 +298,24 @@ def halve(ob, work, coll):
 
 
 def fits(d):
-    """Does it go on the bed? Tall things can be laid diagonally, so the two
-    smaller dimensions only have to make the diagonal, not the side."""
-    s = sorted(d)
-    return s[2] <= BED and math.hypot(s[0], s[1]) <= DIAG and s[1] <= BED
+    """Does it go on the plate?
+
+    The A1 was a cube, so one number answered this. The A2L is 330 x 320 x
+    325, and a part has three dimensions to hand out among three different
+    limits. Sorting both lists descending and matching largest to largest is
+    the optimal assignment when every constraint is an upper bound, so this
+    decides it exactly -- there is nothing to search.
+
+    Deliberately no diagonal placement. The A1 cut NEEDED it, because a
+    260 mm root chord does not go on a 256 mm bed any other way, and a part
+    that only fits cornerwise is a part a slicer can quietly place wrong.
+    Nothing here needs it now; if something ever does, it is a sign the cut
+    is wrong rather than the check.
+    """
+    for want, lim in zip(sorted(d, reverse=True), sorted(BED, reverse=True)):
+        if want > lim - MARGIN:
+            return False
+    return True
 
 
 # ==========================================================================
@@ -296,14 +353,64 @@ def servo_bay(ob, y, work, S=SERVO):
     return ob
 
 
+def swept_bore(path, dia, name, coll, npts=16, extend=12.0):
+    """A tube following a polyline: rings perpendicular to the local tangent.
+
+    The ends are run on straight by `extend` so the cutter leaves the part
+    through its faces rather than stopping flush with one, which would be
+    coplanar and is the one thing an exact boolean reliably hates.
+    """
+    pts = [Vector(p) for p in path]
+    if extend:
+        pts.insert(0, pts[0] + (pts[0] - pts[1]).normalized() * extend)
+        pts.append(pts[-1] + (pts[-1] - pts[-2]).normalized() * extend)
+    r = dia / 2.0
+    rings = []
+    for i, p in enumerate(pts):
+        ax = (pts[min(i + 1, len(pts) - 1)] - pts[max(i - 1, 0)]).normalized()
+        u = Vector((1.0, 0.0, 0.0))
+        if abs(ax.dot(u)) > 0.9:
+            u = Vector((0.0, 1.0, 0.0))
+        v = ax.cross(u).normalized()
+        u = v.cross(ax).normalized()
+        rings.append([p + (u * math.cos(t) + v * math.sin(t)) * r
+                      for t in [2 * math.pi * k / npts for k in range(npts)]])
+    verts, faces = [], []
+    for ring in rings:
+        verts += [tuple(q) for q in ring]
+    for sg in range(len(rings) - 1):
+        a, b = sg * npts, (sg + 1) * npts
+        for i in range(npts):
+            j = (i + 1) % npts
+            faces.append([a + i, a + j, b + j, b + i])
+    faces.append(list(range(npts - 1, -1, -1)))
+    o = (len(rings) - 1) * npts
+    faces.append([o + i for i in range(npts)])
+    me = bpy.data.meshes.new(name)
+    me.from_pydata([Vector(q) * JW.MM for q in verts], [], faces)
+    me.validate(verbose=False)
+    me.update()
+    ob = bpy.data.objects.new(name, me)
+    coll.objects.link(ob)
+    return ob
+
+
 def wire_channel(ob, y0, y1, work, S=SERVO):
-    """Spanwise bore for the servo loom, so wiring threads through the
-    joints instead of being fished through them."""
-    a = skin_point(y0, S["wire_frac"], lower=True)
-    b = skin_point(y1, S["wire_frac"], lower=True)
-    mid_a = (a + skin_point(y0, S["wire_frac"], lower=False)) / 2.0
-    mid_b = (b + skin_point(y1, S["wire_frac"], lower=False)) / 2.0
-    c = cylinder(mid_a, mid_b, S["wire_bore"], "loom", work)
+    """Spanwise bore for the servo loom, so wiring threads through the joints
+    instead of being fished through them.
+
+    SWEPT along the mid-thickness line, not driven straight between its two
+    ends. The wing is swept and tapered, so the 50% chord line is not parallel
+    to anything: a single straight cutter across a 257 mm section sits on 50%
+    chord at both joints and wanders 11.3 mm off it in the middle. Swept, the
+    channel stays mid-section the whole way and meets the next section's
+    channel exactly, instead of stepping at every joint.
+    """
+    n = max(2, int(round((y1 - y0) / 18.0)))
+    path = [((skin_point(y, S["wire_frac"], lower=True)
+              + skin_point(y, S["wire_frac"], lower=False)) / 2.0)
+            for y in (y0 + (y1 - y0) * i / n for i in range(n + 1))]
+    c = swept_bore(path, S["wire_bore"], "loom", work)
     boolean(ob, c)
     bpy.data.objects.remove(c, do_unlink=True)
     return ob
@@ -397,18 +504,27 @@ def bore_wing(wing, work):
     return wing
 
 
-def dowels(part, y, work, n=2):
-    """Two blind holes either side of the spar at a joint face, so a section
-    cannot rotate about the spar while the glue goes off."""
-    made = []
-    for k, frac in enumerate((0.14, 0.52)):
+def dowels(part, y, work):
+    """Blind holes either side of the spar at a joint face, so a section
+    cannot rotate about the spar while the glue goes off.
+
+    Both holes run PARALLEL TO THE SPAR, not along their own chord lines.
+    The 14, 30 and 60 per cent chord lines each have their own sweep: over a
+    22 mm dowel the 60 per cent line diverges from the spar by 0.49 mm, which
+    is more than the fit clearance, so three bores each on their own axis
+    would simply refuse to go together. Shared direction, offset origin.
+
+    The aft hole used to sit at 52 per cent chord, which is exactly where the
+    servo loom channel runs -- a 5 mm bore swallowed the 3.4 mm dowel hole
+    whole at every joint inboard of y = 620 and located nothing at all.
+    """
+    f = SPAR["frac"]
+    ax = (spar_point(y + 10.0, f) - spar_point(y - 10.0, f)).normalized()
+    h = SPAR["dowel_depth"] / 2.0
+    for k, frac in enumerate(SPAR["dowel_fracs"]):
         p = spar_point(y, frac)
-        ax = (spar_point(y + 10.0, frac) - spar_point(y - 10.0, frac)).normalized()
-        a = p - ax * (SPAR["dowel_depth"] / 2.0)
-        b = p + ax * (SPAR["dowel_depth"] / 2.0)
-        c = cylinder(a, b, SPAR["dowel"] + SPAR["fit"], f"dow{k}", work)
-        made.append(c)
-    for c in made:
+        c = cylinder(p - ax * h, p + ax * h,
+                     SPAR["dowel"] + SPAR["fit"], f"dow{k}", work)
         boolean(part, c)
         bpy.data.objects.remove(c, do_unlink=True)
 
@@ -425,7 +541,7 @@ def hinge_for(y, half):
     return 1.0
 
 
-def section_cut(hinge, n_surf=46, n_close=7):
+def section_cut(hinge, n_surf=46, n_close=0, m=None, refl=None):
     """Section loop running only as far aft as `hinge`, closed by a straight
     face there, with a FIXED vertex count whatever the hinge is.
 
@@ -434,10 +550,19 @@ def section_cut(hinge, n_surf=46, n_close=7):
     harmless and they render fine, but an exact boolean lands on them and
     produces garbage: that is what mangled the spar bores first time round.
     Resampling to the hinge and closing it deliberately avoids making them.
+
+    The closing strip carries NO interior points (n_close = 0): the two
+    surfaces are joined by one edge and the loft turns that into the hinge
+    face. Interior points along it are exactly collinear, and a cap n-gon
+    with a collinear run triangulates into zero-area slivers -- which count
+    as self-intersections and were the last ones left in the bundle, one to
+    three per part, all of them on the end cap at 0.74c. The strip was only
+    ever there to add mesh density to a face nothing looks at.
     """
     P = JW.P
-    m, pp, q = P["camber"], P["camber_pos"], P["reflex_start"]
-    t, refl = P["thickness"], P["reflex"]
+    pp, q, t = P["camber_pos"], P["reflex_start"], P["thickness"]
+    m = P["camber"] if m is None else m
+    refl = P["reflex"] if refl is None else refl
 
     def surf(x):
         yt = JW.thickness(x, t)
@@ -455,13 +580,66 @@ def section_cut(hinge, n_surf=46, n_close=7):
         up.append(u)
         lo.append(l)
     u_h, l_h = up[-1], lo[-1]
-    close = [(u_h[0] + (l_h[0] - u_h[0]) * (k + 1) / (n_close + 1),
-              u_h[1] + (l_h[1] - u_h[1]) * (k + 1) / (n_close + 1))
+    # From the LOWER point back up to the UPPER one, because that is where
+    # the loop has got to: up[::-1] runs trailing-to-leading along the top,
+    # lo[1:] runs leading-to-trailing along the bottom, and the closing strip
+    # has to climb back to where it started.
+    #
+    # Interpolating the other way -- which is how this was written -- makes
+    # the outline arrive at the lower surface, jump back up to the upper one,
+    # walk down again and only then close. The closing strip retraces the
+    # hinge line twice, so the lofted body INTERSECTS ITSELF: 338 self-
+    # intersecting face pairs in a single wing section, every one of them at
+    # 0.74c.
+    #
+    # Nothing shows that in a render, and the mesh still counts as watertight.
+    # What it does is make Blender's exact boolean solver unpredictable -- it
+    # does not report failure, it returns something plausible instead. Here it
+    # returned the CUTTER in place of the part, so a wing section came out as
+    # a 6 mm tube that was watertight, fitted the bed, and sliced. The A1 cut
+    # carried the same bug and happened to get the right answer.
+    close = [(l_h[0] + (u_h[0] - l_h[0]) * (k + 1) / (n_close + 1),
+              l_h[1] + (u_h[1] - l_h[1]) * (k + 1) / (n_close + 1))
              for k in range(n_close)]
     return up[::-1] + lo[1:] + close
 
 
-def wing_segment(y0, y1, name, coll, n=14):
+def winglet_sections(n=10):
+    """The winglet loft, in the SAME section form the wing segments use.
+
+    jetwing.py lofts the winglet on inside the Wing object, and the print
+    sections are generated from the planform rather than cut out of that
+    object -- so nothing ever emitted a winglet, and the plate held an
+    aircraft with 150 mm winglets in the aero model and none in the box.
+
+    It stays attached to the outboard section rather than becoming a part of
+    its own. A 325 mm plate has room, and a glued butt joint at the tip is
+    the worst place on the aircraft to put one: the winglet is a cantilever
+    in side load and the tip section is 11 mm thick, so there is nothing
+    there to pin into. Lofted on, there is no joint to fail.
+
+    Same stations and the same wash-out of camber and reflex as jetwing.py,
+    so the printed winglet is the modelled winglet and not a near miss.
+    """
+    P = JW.P
+    half = P["span"] / 2.0
+    cant = math.radians(P["winglet_cant"])
+    wsw = math.tan(math.radians(P["winglet_sweep"]))
+    rise = half * math.tan(math.radians(P["dihedral"]))
+    out = []
+    for i in range(1, n + 1):
+        t = i / float(n)
+        h = P["winglet_h"] * t
+        c = JW.chord_at(half) * (1.0 - (1.0 - P["winglet_taper"]) * t)
+        cut = section_cut(1.0, m=P["camber"] * (1.0 - t),
+                          refl=P["reflex"] * (1.0 - t))
+        out.append(JW.place(cut, c, JW.le_at(half) + h * wsw,
+                            half + h * math.cos(cant),
+                            rise + h * math.sin(cant), JW.twist_at(half)))
+    return out
+
+
+def wing_segment(y0, y1, name, coll, n=14, winglet=False):
     """Build a print section straight from the parametric loft.
 
     NOT by cutting the wing. The wing object is several lofted runs merged
@@ -483,6 +661,11 @@ def wing_segment(y0, y1, name, coll, n=14):
         cut = section_cut(hinge_for(y, half))
         secs.append(JW.place(cut, JW.chord_at(y), JW.le_at(y), y,
                              abs(y) * dih, JW.twist_at(y)))
+    if winglet:
+        # the t = 0 winglet section IS the tip section, so it is skipped and
+        # the loft runs straight on through: one continuous surface, manifold
+        # by construction, no joint
+        secs.extend(winglet_sections())
     v, f = JW.loft(secs, cap_start=True, cap_end=True)
     me = bpy.data.meshes.new(name)
     me.from_pydata([Vector(p) * JW.MM for p in v], [], f)
@@ -499,6 +682,44 @@ def wing_segment(y0, y1, name, coll, n=14):
     return ob
 
 
+def section_aft(front, n_surf=40, n_close=0):
+    """The part of the section AFT of the hinge, resampled, with the hinge
+    face closed deliberately.
+
+    The old way took the full section and clamped x into [hinge, 1]. That
+    piles every point ahead of the hinge onto the hinge line while KEEPING
+    its own thickness, so the flap came out carrying a zero-width flap of
+    surface standing proud of its own hinge face, reaching up to maximum
+    thickness. 1,477 self-intersecting face pairs in one aileron, and the
+    normals inside-out with it, in parts that go straight to a slicer.
+    """
+    P = JW.P
+    pp, q, t = P["camber_pos"], P["reflex_start"], P["thickness"]
+    m, refl = P["camber"], P["reflex"]
+
+    def surf(x):
+        yt = JW.thickness(x, t)
+        yc, dy = JW.camber(x, m, pp, refl, q)
+        th = math.atan(dy)
+        return ((x - yt * math.sin(th), yc + yt * math.cos(th)),
+                (x + yt * math.sin(th), yc - yt * math.cos(th)))
+
+    up, lo = [], []
+    for i in range(n_surf):
+        f = 0.5 * (1.0 - math.cos(math.pi * i / (n_surf - 1)))
+        x = front + (1.0 - front) * f
+        u, l = surf(x)
+        up.append(u)
+        lo.append(l)
+    u0, l0 = up[0], lo[0]
+    close = [(u0[0] + (l0[0] - u0[0]) * (k + 1) / (n_close + 1),
+              u0[1] + (l0[1] - u0[1]) * (k + 1) / (n_close + 1))
+             for k in range(n_close)]
+    # trailing edge forward along the top, DOWN the hinge face, then back
+    # along the bottom; the blunt trailing edge closes the loop itself
+    return up[::-1] + close + lo
+
+
 def control_segment(y0, y1, name, coll, n=10):
     """The matching piece of a flap or aileron: the part aft of the hinge."""
     hinge = 1.0 - JW.P["flap_chord"]
@@ -506,10 +727,8 @@ def control_segment(y0, y1, name, coll, n=10):
     secs = []
     for i in range(n + 1):
         y = y0 + (y1 - y0) * i / n
-        full = section_cut(1.0)
-        cut = [(max(x, hinge), z) for (x, z) in full]
-        secs.append(JW.place(cut, JW.chord_at(y), JW.le_at(y), y,
-                             abs(y) * dih, JW.twist_at(y)))
+        secs.append(JW.place(section_aft(hinge), JW.chord_at(y), JW.le_at(y),
+                             y, abs(y) * dih, JW.twist_at(y)))
     v, f = JW.loft(secs, cap_start=True, cap_end=True)
     me = bpy.data.meshes.new(name)
     me.from_pydata([Vector(p) * JW.MM for p in v], [], f)
@@ -517,34 +736,13 @@ def control_segment(y0, y1, name, coll, n=10):
     me.update()
     ob = bpy.data.objects.new(name, me)
     coll.objects.link(ob)
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(me)
+    bm.free()
     return ob
-
-
-def split_span(src, name, cuts, work, parts_coll, half):
-    """Cut one object into spanwise sections, both wings."""
-    out = []
-    lo, hi = bounds_of(src)
-    for sgn in (1.0, -1.0):
-        for i in range(len(cuts) - 1):
-            y0, y1 = cuts[i] * half, cuts[i + 1] * half
-            if sgn < 0:
-                y0, y1 = -y1, -y0
-            dup = src.copy()
-            dup.data = src.data.copy()
-            parts_coll.objects.link(dup)
-            dup.name = f"{name}_{'R' if sgn > 0 else 'L'}{i + 1}"
-            cutter = box((lo[0] - 50, y0, lo[2] - 50), (hi[0] + 50, y1, hi[2] + 50),
-                         "cut", work)
-            boolean(dup, cutter, 'INTERSECT')
-            bpy.data.objects.remove(cutter, do_unlink=True)
-            if len(dup.data.vertices) == 0:
-                bpy.data.objects.remove(dup, do_unlink=True)
-                continue
-            for y in (y0, y1):
-                if abs(abs(y) - half) > 1.0 and abs(y) > 1.0:
-                    dowels(dup, y, work)
-            out.append(dup)
-    return out
 
 
 def bounds_of(ob):
@@ -642,9 +840,11 @@ def main():
     # --- wing sections, generated rather than cut ---
     f = SPAR["frac"]
     right = []
+    last = len(CUTS) - 2
     for i in range(len(CUTS) - 1):
         y0, y1 = CUTS[i] * half, CUTS[i + 1] * half
-        ob = wing_segment(y0, y1, f"wing_R{i + 1}", parts_coll)
+        ob = wing_segment(y0, y1, f"wing_R{i + 1}", parts_coll,
+                          winglet=(i == last))
         for (od, lo_y, hi_y) in ((SPAR["A_od"], 0.0, SPAR["A_to"]),
                                  (SPAR["B_od"], SPAR["B_from"], SPAR["B_to"])):
             s0, s1 = max(y0, lo_y), min(y1, hi_y)
@@ -661,22 +861,32 @@ def main():
             boolean(ob, c)
             bpy.data.objects.remove(c, do_unlink=True)
 
+        # Loom channel BEFORE the bay. Order matters: a big box is a robust
+        # cutter against a lofted skin, whereas a long thin cylinder meeting
+        # a face the box has just made is the fragile way round.
+        w0, w1 = max(y0, 0.0), min(y1, SERVO["wire_to"])
+        if w1 - w0 > 2.0:
+            wire_channel(ob, w0, w1, work)
+
         # servo bay, where one falls inside this section
         for (nm, ys) in SERVO["stations"].items():
             if y0 <= ys < y1:
                 servo_bay(ob, ys, work)
                 right.append(servo_hatch(ys, f"hatch_{nm}_R", parts_coll))
 
-        # loom channel: every section inboard of the outermost servo
-        w0, w1 = max(y0, 0.0), min(y1, SERVO["wire_to"])
-        if w1 - w0 > 2.0:
-            wire_channel(ob, w0 - 12.0, w1 + 12.0, work)
+        # dowel holes, on the joint faces only -- the centreline face is
+        # located by the spar itself and the tip face no longer exists
+        for y in (y0, y1):
+            if y > 1.0 and abs(y - half) > 1.0:
+                dowels(ob, y, work)
 
         right.append(ob)
 
     # --- control surfaces, in printable lengths ---
+    # flap band is 365 mm and aileron 406 mm, so both go in two pieces on a
+    # 325 mm plate. On the A1 the aileron needed three.
     for (nm, a, b, n) in (("flap", JW.P["flap_y0"], JW.P["flap_y1"], 2),
-                          ("aileron", JW.P["ail_y0"], JW.P["ail_y1"], 3)):
+                          ("aileron", JW.P["ail_y0"], JW.P["ail_y1"], 2)):
         g = JW.P["gap"]
         y0, y1 = a * half + g, b * half - g
         for i in range(n):
@@ -690,7 +900,18 @@ def main():
         parts.append(mirror_y(ob, ob.name.replace("_R", "_L"), parts_coll))
 
     fus = bpy.data.objects["Fuselage"]
-    parts += split_x(fus, "fuselage", 4, work, parts_coll)
+    # THREE rings of 232 mm, against four on the A1. Two would be 348 mm and
+    # the plate is 330: it was tried, and the generic "halve anything that
+    # does not fit" fallback cut them back to four anyway -- and left one of
+    # them non-manifold, because a mid-body cut through a 1.2 mm shell is not
+    # something to do by accident. The pod is 696 mm over the tailcone, not
+    # the 694.6 mm measured in blender/measure.py, not the 620 mm of
+    # pod_len.
+    #
+    # The cross-section is a 96 x 104 rounded superellipse rather than a
+    # circle, so each butt joint keys itself: there is one way the rings go
+    # together and it is obvious by feel.
+    parts += split_x(fus, "fuselage", 3, work, parts_coll)
     for nm in ("Fin", "Rudder", "Inlet", "Duct", "Stator", "Motor"):
         ob = bpy.data.objects.get(nm)
         if ob:
@@ -713,7 +934,7 @@ def main():
 
     rows = export(parts)
     print(f"\n{'part':20s} {'X':>7s} {'Y':>7s} {'Z':>7s} {'faces':>7s}  "
-          f"fits {BED:.0f}?  watertight?")
+          f"fits A2L?  watertight?")
     bad = leaky = 0
     for (nm, d, ok, nman, loose, nf) in sorted(rows):
         wt = "yes" if (nman == 0 and loose == 0) else f"NO ({nman} open edges)"
@@ -721,7 +942,8 @@ def main():
               f"{'yes' if ok else 'NO':>7s}      {wt}")
         bad += 0 if ok else 1
         leaky += 0 if (nman == 0 and loose == 0) else 1
-    print(f"\n  {len(rows)} parts, {bad} too big, {leaky} not watertight")
+    print(f"\n  {len(rows)} parts, {bad} too big for "
+          f"{BED[0]:.0f}x{BED[1]:.0f}x{BED[2]:.0f}, {leaky} not watertight")
     print(f"  written to {OUT}/")
     return bad
 

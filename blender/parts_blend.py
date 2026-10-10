@@ -8,10 +8,10 @@ Build jetwing-parts.blend: every printable part, in one file, ready to open.
 Two collections:
 
     Assembled     the aircraft, for reference (hidden on open)
-    Print Parts   all 33 pieces, each standing in its PRINT orientation,
+    Print Parts   all 30 pieces, each standing in its PRINT orientation,
                   sitting on z = 0, laid out on a grid
 
-and an A1 build volume drawn to one side, so "does it fit" is something you
+and an A2L build volume drawn to one side, so "does it fit" is something you
 can see rather than something you have to take on trust.
 
 Select a part, File > Export > STL, tick Selection Only. Or just look at it.
@@ -30,7 +30,7 @@ import print_parts as PP
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PITCH = 0.300          # grid spacing, metres
-COLS = 7
+COLS = 6
 
 
 def stand_up(ob):
@@ -47,6 +47,8 @@ def stand_up(ob):
         ob.data.transform(Matrix.Rotation(math.radians(90.0), 4, 'Y'))
     elif n in ("part_Ducta", "part_Ductb", "part_Motor"):
         ob.data.transform(Matrix.Rotation(math.radians(90.0), 4, 'Y'))
+    # wing_?4 carries the winglet: rotating the span up to Z lays the winglet
+    # flat across the plate, which is why it fits in 304 mm of height.
 
 
 def drop_to_floor(ob):
@@ -57,10 +59,12 @@ def drop_to_floor(ob):
 
 
 def wire_box(name, size, coll, at):
-    """A wireframe cube: the build volume."""
-    s = size / 2.0
-    v = [(-s, -s, 0), (s, -s, 0), (s, s, 0), (-s, s, 0),
-         (-s, -s, size), (s, -s, size), (s, s, size), (-s, s, size)]
+    """A wireframe box: the build volume. Takes (X, Y, Z) -- the A2L is
+    330 x 320 x 325 and is not a cube, so a single number will not do."""
+    sx, sy, sz = size
+    s, t = sx / 2.0, sy / 2.0
+    v = [(-s, -t, 0), (s, -t, 0), (s, t, 0), (-s, t, 0),
+         (-s, -t, sz), (s, -t, sz), (s, t, sz), (-s, t, sz)]
     e = [(0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4),
          (0, 4), (1, 5), (2, 6), (3, 7)]
     me = bpy.data.meshes.new(name)
@@ -115,7 +119,7 @@ def main():
     # motor are used whole, so they were renamed in place and never moved out
     # of the assembled collection. Collecting by collection quietly lost five
     # parts, which is the kind of thing you only notice by counting.
-    pre = ("wing_", "flap_", "aileron_", "fuselage_", "part_")
+    pre = ("wing_", "flap_", "aileron_", "fuselage_", "hatch_", "part_")
     parts = [o for o in bpy.data.objects
              if o.type == 'MESH' and o.name.startswith(pre)
              and len(o.data.vertices)]
@@ -124,7 +128,19 @@ def main():
         for c in list(o.users_collection):
             c.objects.unlink(o)
         parts_src.objects.link(o)
-    assert len(parts) == 33, f"expected 33 parts, laid out {len(parts)}"
+
+    # Check against what print_parts.py actually EXPORTED, not against a
+    # number written in here. A hand-kept count is how the four servo hatches
+    # went missing: "hatch_" was never added to the prefixes above, so they
+    # were silently dropped, and the assertion had been set to the number
+    # that was being laid out rather than the number that exists.
+    shipped = sorted(f[:-4] for f in os.listdir(ROOT + "/print")
+                     if f.endswith(".stl"))
+    missing = sorted(set(shipped) - {o.name for o in parts})
+    extra = sorted({o.name for o in parts} - set(shipped))
+    assert not missing and not extra, (
+        "laid out %d parts but %d were exported; missing %s, unexpected %s"
+        % (len(parts), len(shipped), missing, extra))
 
     mat = material("Part", (0.86, 0.87, 0.90, 1.0))
     for i, ob in enumerate(parts):
@@ -140,9 +156,9 @@ def main():
               ob.location + Vector((0.0, -0.115, 0.0)), parts_src)
 
     rows = (len(parts) + COLS - 1) // COLS
-    wire_box("A1_build_volume_256", PP.BED, parts_src,
+    wire_box("A2L_build_volume", PP.BED, parts_src,
              Vector(((COLS / 2.0 + 0.9) * PITCH, -(rows / 2.0) * PITCH, 0.0)))
-    label("Bambu Lab A1  256 x 256 x 256",
+    label("Bambu Lab A2L  330 x 320 x 325",
           Vector(((COLS / 2.0 + 0.9) * PITCH, -(rows / 2.0) * PITCH - 0.17, 0.0)),
           parts_src, size=30.0)
 

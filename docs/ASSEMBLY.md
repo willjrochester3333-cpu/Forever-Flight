@@ -1,6 +1,6 @@
 # Building it
 
-2060 mm swept flying wing, 33 printed parts, 50 mm EDF. Target all-up weight
+2060 mm swept flying wing, 30 printed parts, 50 mm EDF. Target all-up weight
 **1124 g** at **29.8 g/dm²**.
 
 ![spars](img/blender/assembly-spars.png)
@@ -35,7 +35,7 @@ what you want. Move it back 3–4 mm at a time afterwards.
 | **Spar A** | 10 × 8 mm tube | **900 mm** — one piece, through the centre |
 | **Spar B** | 8 × 6 mm tube | **500 mm** × 2 |
 | **Anti-rotation** | 4 mm rod | **380 mm** |
-| Dowels | 3 mm rod | ~500 mm, cut into 14 mm pins (you need 28) |
+| Dowels | 4 mm rod | ~300 mm, cut into 22 mm pins (you need 12) |
 
 Spar B is 8 mm OD; Spar A is 8 mm ID. **B slides inside A.** That is why those
 two sizes and no others.
@@ -59,7 +59,8 @@ tape or Blenderm for hinges, sandpaper 240/400, isopropyl alcohol.
 
 ## Printing
 
-LW-PLA throughout. Starting point, not gospel:
+Cut for a **Bambu Lab A2L** (330 x 320 x 325 mm). LW-PLA throughout.
+Starting point, not gospel:
 
 | | |
 |---|---|
@@ -73,21 +74,24 @@ Open `blender/jetwing-parts.blend` and every part is already standing the way
 it prints. Nothing needs rotating.
 
 **Print one wing section first and check the spar slides through** before
-committing 30 hours to the rest. Bores are cut +0.4 mm oversize; if yours come
+committing the rest. `wing_R1` encloses a litre and is a long print — do a
+small one, like a hatch, if you only want to check your settings. Bores are cut +0.4 mm oversize; if yours come
 out tight, run a 10 mm drill through by hand rather than reprinting.
 
 ---
 
 ## 1. Wing — dry fit everything first
 
-Lay all ten wing sections out in order, both wings, and **thread Spar A
-through dry**. No glue yet.
+Lay all **eight** wing sections out in order, both wings, and **thread
+Spar A through dry**. No glue yet. Four a side, 257.5 mm each, and the
+winglets come already on `wing_R4` / `wing_L4` — there is no separate winglet
+to glue on.
 
-1. Slide Spar A through the two root sections (`wing_R1a`/`R1b` and the
-   matching L). It should pass through both and stand proud 450 mm each side.
+1. Slide Spar A through the two root sections (`wing_R1` and `wing_L1`). It
+   should pass through both and stand proud 450 mm each side.
 2. Add sections 2 and 3 on each side over the protruding spar.
 3. Slide **Spar B** in from each tip end — it goes *inside* Spar A for the
-   first 70 mm, then carries on out to section 4.
+   first 70 mm, then carries on out through section 4.
 4. Push the whole lot together. Sight down the leading edge from the tip.
 
 **Check now, while you still can:** both panels should show the same dihedral
@@ -104,8 +108,12 @@ Only when the dry fit is right:
    only go in if both panels are at the same incidence — which is the entire
    reason it is there. If it fights you, something is twisted. Fix that
    before glue.
-7. Working outward one joint at a time: dry pins in, check alignment, then
-   epoxy. Two 3 mm dowels per face, 14 mm deep, either side of the spar.
+7. **Thread the servo loom now**, before any wing joint is bonded. The 6 mm
+   channel runs from the root out to y = 620 through sections 1, 2 and 3, and
+   once those joints are closed you cannot get at it.
+8. Working outward one joint at a time: dry pins in, check alignment, then
+   epoxy. Two 4 mm dowels per face, 11 mm into each side, either side of the
+   spar. Three joints a side.
 
 Bond one joint at a time and let it go off. A wing built in one rush sets
 with a twist in it.
@@ -141,9 +149,13 @@ the bench, then drop the whole assembly into the bay. Fishing a servo into a
 closed pocket through its own hole is the worst job on a build like this, and
 it leaves the servo unserviceable afterwards.
 
-**Loom channel.** A 5 mm bore runs spanwise at 52% chord from the aileron bay
+**Loom channel.** A 6 mm bore runs spanwise at 50% chord from the aileron bay
 inboard to the root, straight through every joint, so the wiring threads
-rather than being fished. It lines up to within 0.5 mm at the worst joint.
+rather than being fished. It passes through both bays on the way, so each
+servo lead joins the loom where it sits. The channel is swept along the
+section rather than driven straight, and the measured step where one
+section's channel meets the next is **0.000 mm**.
+
 Thread the wires **before** you bond the sections together.
 
 ### Torque
@@ -173,8 +185,10 @@ Flap torque is worst with full crow at speed. Deploy crow on approach, around
 
 ## 4. Fuselage and EDF
 
-1. Bond `fuselage_1` to `_2` to `_3` to `_4` nose to tail. These are shells
-   with a 1.2 mm wall; use epoxy sparingly, it is all weight.
+1. Bond `fuselage_1` to `_2` to `_3` nose to tail — three rings of 232 mm.
+   These are shells with a 1.2 mm wall; use epoxy sparingly, it is all
+   weight. There are no dowels and none are needed: the section is a
+   96 x 104 rounded superellipse, not a circle, so each joint keys itself.
 2. **Fit the duct, fan and stator before closing the last section.** The
    motor wires come forward inside the duct.
 3. Bellmouth inlets bond to the fuselage sides. The rounded lip faces

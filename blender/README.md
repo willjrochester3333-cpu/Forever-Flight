@@ -45,9 +45,9 @@ of surfaces that are already doing something else.
 
 ## Printing it
 
-**`jetwing-parts.blend` — open this one for the parts.** All 33 pieces, each
+**`jetwing-parts.blend` — open this one for the parts.** All 30 pieces, each
 standing in its print orientation on z = 0, laid out on a grid and labelled
-with its name and size, plus an A1 build volume drawn to one side for scale.
+with its name and size, plus an A2L build volume drawn to one side for scale.
 The assembled aircraft is in an `Assembled` collection, hidden; tick it back
 on in the Outliner to see it whole.
 
@@ -57,10 +57,20 @@ Only*. Or skip Blender entirely and use the ready-made STLs in `print/`.
 ![parts](../docs/img/blender/parts-blend.png)
 
 
-`blender/print_parts.py` is what cuts the aircraft into **33 parts, all inside a
-256 mm cube and all watertight**, bores the stepped spar channel and writes
-`print/*.stl`. See [docs/PRINTING.md](../docs/PRINTING.md) for the carbon
-sizes and the assembly order.
+`blender/print_parts.py` is what cuts the aircraft into **30 parts, all inside
+a Bambu Lab A2L's 330 x 320 x 325 mm and all watertight**, bores the stepped
+spar channel, the servo bays, the pushrod guides, the swept loom channel and
+the joint dowel holes, and writes `print/*.stl`.
+
+`blender/check_parts.py` then loads every STL back in and audits it: positive
+volume, no non-manifold edges, and **no self-intersecting faces**. Run it
+before you print. That last test is there because an exact boolean on a
+self-intersecting target returns something plausible rather than an error --
+it once returned the cutter in place of the part, and a 6 mm tube is
+watertight, fits the bed and slices.
+
+See [docs/PRINTING.md](../docs/PRINTING.md) for the carbon sizes and the
+assembly order.
 
 ![parts](../docs/img/blender/print-parts.png)
 
